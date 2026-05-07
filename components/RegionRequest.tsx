@@ -14,6 +14,11 @@ const TRAILS_PMTILES_URL =
 
 const BOOK_URL = "https://calendar.app.google/HcRztFz6DJevB5776";
 
+// Paste the deployed Google Apps Script Web app URL here once set up.
+// Form submissions append a row to your "AWAYS scoping requests" Google Sheet.
+// Setup instructions: scripts/aways-intake.gs
+const SUBMISSION_URL = "";
+
 declare global {
   interface Window {
     applyJuicyTrailsColorOverrides?: (map: maplibregl.Map) => void;
@@ -28,6 +33,42 @@ function ensurePmtilesProtocol() {
   if (typeof window === "undefined" || pmtilesProtocolRegistered) return;
   maplibregl.addProtocol("pmtiles", new Protocol().tile);
   pmtilesProtocolRegistered = true;
+}
+
+class JtAttributionControl implements maplibregl.IControl {
+  private container: HTMLDivElement | null = null;
+
+  onAdd(): HTMLElement {
+    this.container = document.createElement("div");
+    this.container.className = "maplibregl-ctrl attribution-control collapsed";
+
+    const button = document.createElement("button");
+    button.className = "attribution-toggle";
+    button.type = "button";
+    button.title = "Map credits";
+    button.innerHTML =
+      '<span style="font-family:Georgia,Times,serif;font-size:15px;font-style:italic;font-weight:bold;">i</span>';
+
+    const text = document.createElement("div");
+    text.className = "attribution-text";
+    text.innerHTML =
+      "JuicyTrails &copy; | OpenFreeMap &copy; | MapLibre | Data from OpenStreetMap";
+
+    button.addEventListener("click", () => {
+      if (!this.container) return;
+      this.container.classList.toggle("collapsed");
+      this.container.classList.toggle("expanded");
+    });
+
+    this.container.appendChild(button);
+    this.container.appendChild(text);
+    return this.container;
+  }
+
+  onRemove(): void {
+    this.container?.parentNode?.removeChild(this.container);
+    this.container = null;
+  }
 }
 
 function loadJtStyleScript(): Promise<void> {
@@ -91,8 +132,10 @@ export default function RegionRequest() {
         style: STYLE_URL,
         center: DEFAULT_CENTER,
         zoom: DEFAULT_ZOOM,
+        attributionControl: false,
       });
       map.addControl(new maplibregl.NavigationControl(), "top-right");
+      map.addControl(new JtAttributionControl(), "bottom-right");
       map.on("load", () => {
         // 1. JT color palette over Liberty layers
         try { window.applyJuicyTrailsColorOverrides?.(map); } catch (e) { console.warn(e); }
@@ -214,6 +257,29 @@ export default function RegionRequest() {
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const payload = {
+      email: String(formData.get("email") ?? ""),
+      note: String(formData.get("note") ?? ""),
+      bbox,
+      josm_url: bbox ? bboxToJosmUrl(bbox) : null,
+      submitted_at: new Date().toISOString(),
+    };
+
+    // Primary: Google Apps Script Web app → appends a row to the Google Sheet.
+    // text/plain content type avoids a CORS preflight; the script reads the raw body.
+    if (SUBMISSION_URL.startsWith("http")) {
+      try {
+        await fetch(SUBMISSION_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        console.warn("Sheet submission failed:", err);
+      }
+    }
+
+    // Silent fallback: Netlify Forms (only fires when deployed on Netlify).
     try {
       await fetch("/", {
         method: "POST",
@@ -221,7 +287,7 @@ export default function RegionRequest() {
         body: new URLSearchParams(formData as unknown as Record<string, string>).toString(),
       });
     } catch {
-      // Local dev / no Netlify Forms backend — still acknowledge to the user.
+      // Local dev — silent.
     }
     setSubmitted(true);
   }
@@ -229,10 +295,13 @@ export default function RegionRequest() {
   if (submitted) {
     return (
       <div className="rounded-lg border border-hairline bg-surface-1 p-8 max-w-2xl">
-        <h3 className="text-xl font-semibold tracking-tight">Got it.</h3>
+        <h3 className="text-xl font-semibold tracking-tight">
+          Got your region and note.
+        </h3>
         <p className="mt-2 text-ink-muted">
-          We&apos;ll be in touch shortly to schedule a 15-minute call. While
-          you wait, you can book a time directly:
+          Last step — pick a 15-minute slot for the scoping call. Use the same
+          email on the booking page so we can match it to what you just
+          submitted.
         </p>
         <a
           href={BOOK_URL}
