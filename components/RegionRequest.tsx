@@ -9,7 +9,7 @@ const DEFAULT_CENTER: [number, number] = [-106.92, 38.87]; // Crested Butte
 const DEFAULT_ZOOM = 7;
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 
-const BOOK_URL = "#"; // TODO: paste Google Calendar appointment scheduling URL
+const BOOK_URL = "https://calendar.app.google/HcRztFz6DJevB5776";
 
 declare global {
   interface Window {
