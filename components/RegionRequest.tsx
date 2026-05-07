@@ -2,19 +2,32 @@
 
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
+import { Protocol } from "pmtiles";
 
 type BBox = { west: number; south: number; east: number; north: number };
 
 const DEFAULT_CENTER: [number, number] = [-106.92, 38.87]; // Crested Butte
-const DEFAULT_ZOOM = 7;
+const DEFAULT_ZOOM = 8;
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const TRAILS_PMTILES_URL =
+  "pmtiles://https://pub-a1acba1578d9437aaa71b986c790e914.r2.dev/us_trails.pmtiles";
 
 const BOOK_URL = "https://calendar.app.google/HcRztFz6DJevB5776";
 
 declare global {
   interface Window {
     applyJuicyTrailsColorOverrides?: (map: maplibregl.Map) => void;
+    addJuicyTrailsLayers?: (map: maplibregl.Map, sourceId: string) => void;
+    addJuicyTrailsHillshade?: (map: maplibregl.Map, opts?: object) => void;
+    liftJuicyTrailsLabels?: (map: maplibregl.Map) => void;
   }
+}
+
+let pmtilesProtocolRegistered = false;
+function ensurePmtilesProtocol() {
+  if (typeof window === "undefined" || pmtilesProtocolRegistered) return;
+  maplibregl.addProtocol("pmtiles", new Protocol().tile);
+  pmtilesProtocolRegistered = true;
 }
 
 function loadJtStyleScript(): Promise<void> {
@@ -71,6 +84,8 @@ export default function RegionRequest() {
       }
       if (cancelled || !mapContainer.current) return;
 
+      ensurePmtilesProtocol();
+
       const map = new maplibregl.Map({
         container: mapContainer.current,
         style: STYLE_URL,
@@ -79,13 +94,24 @@ export default function RegionRequest() {
       });
       map.addControl(new maplibregl.NavigationControl(), "top-right");
       map.on("load", () => {
-        if (window.applyJuicyTrailsColorOverrides) {
-          try {
-            window.applyJuicyTrailsColorOverrides(map);
-          } catch (e) {
-            console.warn("JT color overrides failed:", e);
-          }
+        // 1. JT color palette over Liberty layers
+        try { window.applyJuicyTrailsColorOverrides?.(map); } catch (e) { console.warn(e); }
+
+        // 2. Hillshade (AWS Terrarium DEM)
+        try { window.addJuicyTrailsHillshade?.(map); } catch (e) { console.warn(e); }
+
+        // 3. Trails PMTiles source + 11 colored trail layers
+        try {
+          map.addSource("jt-trails", { type: "vector", url: TRAILS_PMTILES_URL });
+          window.addJuicyTrailsLayers?.(map, "jt-trails");
+        } catch (e) {
+          console.warn("JT trails source/layers failed:", e);
         }
+
+        // 4. Lift Liberty labels above trails
+        try { window.liftJuicyTrailsLabels?.(map); } catch (e) { console.warn(e); }
+
+        // 5. bbox layers on top of everything
         map.addSource("bbox", {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
