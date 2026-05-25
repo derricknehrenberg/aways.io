@@ -23,6 +23,10 @@ html, body {
   color: var(--color-ink);
 }
 
+*, *::before, *::after {
+  border-color: var(--color-hairline);
+}
+
 /* JuicyTrails-style attribution control */
 .attribution-control {
   background: #fff;

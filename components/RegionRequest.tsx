@@ -8,7 +8,7 @@ type BBox = { west: number; south: number; east: number; north: number };
 
 const DEFAULT_CENTER: [number, number] = [-106.92, 38.87]; // Crested Butte
 const DEFAULT_ZOOM = 8;
-const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const STYLE_URL = "/liberty-style.json";
 const TRAILS_PMTILES_URL =
   "pmtiles://https://pub-a1acba1578d9437aaa71b986c790e914.r2.dev/us_trails.pmtiles";
 
@@ -338,7 +338,7 @@ export default function RegionRequest() {
       <div className="relative">
         <div
           ref={mapContainer}
-          className="h-[480px] w-full rounded-lg overflow-hidden border border-hairline"
+          className="h-[480px] w-full rounded-lg overflow-hidden border border-hairline outline-none [&_canvas]:outline-none"
         />
         <div className="absolute top-3 left-3 z-10 flex gap-2">
           <button
