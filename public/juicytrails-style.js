@@ -21,7 +21,7 @@
  *     Only use this if you fetch the style JSON yourself before map init.
  *
  *   addJuicyTrailsLayers(map, sourceId)
- *     Adds all 11 color-coded trail line layers to an already-loaded
+ *     Adds all 12 color-coded trail line layers to an already-loaded
  *     MapLibre map instance. Call inside map.on('load', …) after source.
  *
  *   addJuicyTrailsHillshade(map, options?)
@@ -36,13 +36,30 @@
  *     if missing. contour-lines is placed before 'water' so it
  *     renders above terrain colors but below water/roads/trails.
  *
+ *   addJuicyTrailsPeaks(map, options?)
+ *     Adds mountain-peak icons + name/elevation labels from the Liberty
+ *     base source (openmaptiles mountain_peak), which Liberty ships but
+ *     never styles. No-op-safe on non-Liberty bases.
+ *
+ *   addJuicyTrailsSkiLifts(map, options?)
+ *     Adds ski-lift / aerialway lines from the Liberty base source
+ *     (openmaptiles transportation, class=aerialway). Liberty draws lift
+ *     station icons but no lift lines. No-op-safe on non-Liberty bases.
+ *
  *   liftJuicyTrailsLabels(map)
- *     Moves Liberty label/name layers to the top of the layer stack
- *     so they render above trails. Excludes contour-labels so Liberty
- *     place/highway labels win symbol collisions.
+ *     Moves every base-map symbol layer (place/road/water labels, road
+ *     & highway shields, POI icons + names, airport labels, one-way
+ *     arrows) to the top of the layer stack so it renders above trails.
+ *     Excludes contour-labels and JT's own jt-* symbol layers so Liberty
+ *     place labels win symbol collisions against them.
  *
  * Color/filter source: JuicyTrails-USA Mapbox style (cmkkgcpzb000c01rfhttf0z47)
  */
+
+// Shipped style version. Keep in sync with the top entry in CHANGELOG.md.
+// Lets a deployed (vendored) copy report which version it is — read it in
+// the browser console as JT_STYLE_VERSION to confirm what's running.
+const JT_STYLE_VERSION = '0.6.1';
 
 // ── BASE MAP COLOR PALETTE (from style.json) ──────────────────────
 const JT_COLORS = {
@@ -252,6 +269,7 @@ function applyJuicyTrailsColorOverrides(map) {
 // Layer order matters: rendered bottom-to-top (tracks under paths under hike, etc.)
 
 const _W = ['interpolate', ['linear'], ['zoom'], 8, 1, 13, 2, 22, 4]; // standard trail width
+const _W_HALF = ['interpolate', ['linear'], ['zoom'], 8, 0.5, 13, 1, 22, 2]; // 50% of _W, for informal paths
 
 const _PAVED = ['paved', 'asphalt', 'chipseal', 'concrete', 'concrete:lanes',
     'concrete:plates', 'paving_stones', 'paving_stone:lanes', 'grass_paver',
@@ -260,26 +278,44 @@ const _PAVED = ['paved', 'asphalt', 'chipseal', 'concrete', 'concrete:lanes',
 
 const _F = {
     notPaved: ['!', ['match', ['get', 'surface'], _PAVED, true, false]],
-    notAccess: ['!', ['match', ['get', 'access'], ['no', 'private'], true, false]],
-    notInformal: ['!', ['match', ['get', 'informal'], ['yes'], true, false]],
+    notAccess: ['!', ['match', ['get', 'access'], ['no', 'private', 'discouraged'], true, false]],
     notSidewalk: ['!', ['any', ['==', ['get', 'footway'], 'sidewalk'], ['has', 'sidewalk']]],
     hasBike: ['match', ['get', 'bicycle'], ['yes', 'designated', 'permissive'], true, false],
     hasFoot: ['match', ['get', 'foot'], ['yes', 'designated', 'permissive'], true, false],
     hasHorse: ['match', ['get', 'horse'], ['yes', 'designated', 'permissive'], true, false],
     hasMoto: ['match', ['get', 'motorcycle'], ['yes', 'designated', 'permissive'], true, false],
     hasAtv: ['match', ['get', 'atv'], ['yes', 'designated', 'permissive'], true, false],
+    is4wd: ['==', ['get', '4wd_only'], 'yes'],
 };
 
 const JT_TRAIL_LAYERS = [
-    // 4WD Track — brown  rgb(159,89,15)
+    // Track — brown solid  rgb(159,89,15)
     {
         id: 'jc-track',
+        label: 'Track',
+        color: 'rgb(159,89,15)',
+        filter: ['all',
+            ['==', ['get', 'highway'], 'track'],
+            ['!', _F.is4wd],
+        ],
+        width: _W,
+        minzoom: 11,
+    },
+    // 4WD Track — track brown + path dash  rgb(159,89,15)
+    // highway=track + 4wd_only=yes; split out of jc-track so the dash shows.
+    {
+        id: 'jc-track-4wd',
         label: '4WD Track',
         color: 'rgb(159,89,15)',
-        filter: ['==', ['get', 'highway'], 'track'],
+        dash: [3, 1.5],
+        filter: ['all',
+            ['==', ['get', 'highway'], 'track'],
+            _F.is4wd,
+        ],
         width: _W,
+        minzoom: 11,
     },
-    // No-access / informal — black dashed
+    // Restricted access (no / private / discouraged) — black dashed
     {
         id: 'jc-no-access',
         label: 'No Access',
@@ -288,10 +324,7 @@ const JT_TRAIL_LAYERS = [
         dash: [3, 3],
         filter: ['all',
             ['match', ['get', 'highway'], ['path', 'footway', 'bridleway', 'cycleway'], true, false],
-            ['any',
-                ['match', ['get', 'informal'], ['yes'], true, false],
-                ['match', ['get', 'access'], ['no', 'private', 'discouraged'], true, false],
-            ],
+            ['match', ['get', 'access'], ['no', 'private', 'discouraged'], true, false],
         ],
         width: ['interpolate', ['linear'], ['zoom'], 16, 0.5, 22, 2],
     },
@@ -303,7 +336,7 @@ const JT_TRAIL_LAYERS = [
         filter: ['all',
             ['match', ['get', 'highway'], ['path', 'footway'], true, false],
             ['any', _F.hasFoot, ['all', ['==', ['get', 'highway'], 'footway'], ['!', ['has', 'foot']]]],
-            _F.notAccess, _F.notInformal,
+            _F.notAccess,
             ['!', ['any',
                 ['==', ['get', 'footway'], 'sidewalk'], ['has', 'sidewalk'],
                 ['==', ['get', 'footway'], 'crossing'], ['has', 'crossing'],
@@ -312,7 +345,7 @@ const JT_TRAIL_LAYERS = [
         ],
         width: _W,
     },
-    // Hiking + Horse (bridleway or foot+horse, unpaved) — purple  rgb(150,49,252)
+    // Hiking + Horse (bridleway, or horse-allowed path/footway, unpaved) — purple  rgb(150,49,252)
     {
         id: 'jc-hike-horse',
         label: 'Hike + Horse',
@@ -320,10 +353,10 @@ const JT_TRAIL_LAYERS = [
         filter: ['all',
             ['match', ['get', 'highway'], ['path', 'footway', 'bridleway'], true, false],
             ['any',
-                ['all', ['match', ['get', 'highway'], ['path', 'footway'], true, false], _F.hasFoot, _F.hasHorse],
+                ['all', ['match', ['get', 'highway'], ['path', 'footway'], true, false], _F.hasHorse],
                 ['==', ['get', 'highway'], 'bridleway'],
             ],
-            _F.notAccess, _F.notInformal, _F.notSidewalk, _F.notPaved,
+            _F.notAccess, _F.notSidewalk, _F.notPaved,
         ],
         width: _W,
     },
@@ -333,7 +366,7 @@ const JT_TRAIL_LAYERS = [
         label: 'Bicycle',
         color: '#faba0a',
         filter: ['all',
-            _F.notAccess, _F.notInformal, _F.notSidewalk, _F.notPaved,
+            _F.notAccess, _F.notSidewalk, _F.notPaved,
             ['all', ['!', _F.hasMoto], ['!', _F.hasAtv], ['!', _F.hasHorse]],
             ['any',
                 ['==', ['get', 'highway'], 'cycleway'],
@@ -349,7 +382,7 @@ const JT_TRAIL_LAYERS = [
         color: 'rgb(255,128,0)',
         filter: ['all',
             ['match', ['get', 'highway'], ['path', 'footway', 'cycleway', 'bridleway'], true, false],
-            _F.hasHorse, _F.hasBike, _F.notAccess, _F.notInformal, _F.notSidewalk, _F.notPaved,
+            _F.hasHorse, _F.hasBike, _F.notAccess, _F.notSidewalk, _F.notPaved,
         ],
         width: _W,
     },
@@ -377,7 +410,7 @@ const JT_TRAIL_LAYERS = [
         color: 'rgb(2,115,17)',
         filter: ['all',
             ['match', ['get', 'highway'], ['path', 'footway', 'bridleway', 'track'], true, false],
-            _F.hasMoto, _F.notAccess, _F.notInformal, _F.notSidewalk, _F.notPaved,
+            _F.hasMoto, _F.notAccess, _F.notSidewalk, _F.notPaved,
         ],
         width: _W,
     },
@@ -388,7 +421,7 @@ const JT_TRAIL_LAYERS = [
         color: 'rgb(91,197,52)',
         filter: ['all',
             ['==', ['get', 'highway'], 'path'],
-            _F.hasAtv, _F.notAccess, _F.notInformal,
+            _F.hasAtv, _F.notAccess,
         ],
         width: _W,
     },
@@ -400,7 +433,8 @@ const JT_TRAIL_LAYERS = [
         dash: [3, 3],
         filter: ['all',
             ['==', ['get', 'highway'], 'path'],
-            _F.notAccess, _F.notInformal, _F.notSidewalk, _F.notPaved,
+            ['!', ['==', ['get', 'informal'], 'yes']],
+            _F.notAccess, _F.notSidewalk, _F.notPaved,
             ['all',
                 ['!', _F.hasFoot],
                 ['!', _F.hasBike],
@@ -410,6 +444,29 @@ const JT_TRAIL_LAYERS = [
             ],
         ],
         width: _W,
+    },
+    // Informal Path — same red dashed as jc-path, half width  rgb(255,0,0)
+    // highway=path + informal=yes, no mode tags (the informal subset of jc-path)
+    {
+        id: 'jc-path-informal',
+        label: 'Informal Path',
+        color: 'rgb(199,91,82)',   // muted brick red — was rgb(255,0,0)
+        dash: [3, 3],
+        minzoom: 13,               // invisible at overview/regional zoom
+        opacity: 0.8,              // de-emphasized vs the 0.9 default, still readable
+        filter: ['all',
+            ['==', ['get', 'highway'], 'path'],
+            ['==', ['get', 'informal'], 'yes'],
+            _F.notAccess, _F.notSidewalk, _F.notPaved,
+            ['all',
+                ['!', _F.hasFoot],
+                ['!', _F.hasBike],
+                ['!', _F.hasMoto],
+                ['!', _F.hasAtv],
+                ['!', _F.hasHorse],
+            ],
+        ],
+        width: _W_HALF,
     },
     // Sidewalk and Footpath — purple/lavender  rgb(146,101,174)
     {
@@ -429,7 +486,7 @@ const JT_TRAIL_LAYERS = [
                     ['match', ['get', 'surface'], _PAVED, true, false],
                 ],
             ],
-            _F.notAccess, _F.notInformal,
+            _F.notAccess,
             ['all',
                 ['!', _F.hasBike],
                 ['!', _F.hasMoto],
@@ -438,6 +495,7 @@ const JT_TRAIL_LAYERS = [
             ],
         ],
         width: _W,
+        minzoom: 13,
     },
 ];
 
@@ -449,7 +507,7 @@ const JT_TRAIL_LAYERS = [
  * @param {string} sourceLayer - MVT source-layer name (e.g. 'trails')
  */
 function addJuicyTrailsLayers(map, sourceId, sourceLayer = 'trails') {
-    JT_TRAIL_LAYERS.forEach(({ id, color, filter, width, dash, opacity }) => {
+    JT_TRAIL_LAYERS.forEach(({ id, color, filter, width, dash, opacity, minzoom }) => {
         const layer = {
             id,
             type: 'line',
@@ -463,6 +521,7 @@ function addJuicyTrailsLayers(map, sourceId, sourceLayer = 'trails') {
                 'line-opacity': opacity ?? 0.9,
             },
         };
+        if (minzoom != null) layer.minzoom = minzoom;
         if (dash) layer.paint['line-dasharray'] = dash;
         map.addLayer(layer);
     });
@@ -651,10 +710,208 @@ function addJuicyTrailsContours(map, options = {}) {
 }
 
 /**
- * Moves Liberty label/name layers to the top of the layer stack so
- * they render above trails. Excludes `contour-labels` on purpose so
- * Liberty's place/highway/water labels win symbol collisions when
- * elevation labels overlap them.
+ * Adds mountain-peak icons + name/elevation labels from the Liberty
+ * base source (openmaptiles `mountain_peak`). Liberty ships the data
+ * but styles no peak layer, so this fills that gap. No-op-safe: if the
+ * source is absent (non-Liberty base), it warns and returns.
+ *
+ * @param {maplibregl.Map} map
+ * @param {Object} [options]
+ * @param {string} [options.sourceId='openmaptiles']
+ * @param {string} [options.layerId='jt-mountain-peak']
+ * @param {number} [options.minzoom=11]
+ * @param {string} [options.textColor='#4a3f33']
+ * @param {string} [options.haloColor='#ffffff']
+ */
+function addJuicyTrailsPeaks(map, options = {}) {
+    const {
+        sourceId = 'openmaptiles',
+        layerId = 'jt-mountain-peak',
+        minzoom = 11,
+        textColor = '#4a3f33',
+        haloColor = '#ffffff',
+    } = options;
+
+    if (!map.getSource(sourceId)) {
+        console.warn(
+            `[juicytrails] addJuicyTrailsPeaks: source "${sourceId}" not found; ` +
+            'skipping (base style is not OpenFreeMap Liberty?).'
+        );
+        return;
+    }
+    if (map.getLayer(layerId)) map.removeLayer(layerId);
+
+    map.addLayer({
+        id: layerId,
+        type: 'symbol',
+        source: sourceId,
+        'source-layer': 'mountain_peak',
+        minzoom,
+        filter: ['match', ['get', 'class'], ['peak', 'volcano'], true, false],
+        layout: {
+            'icon-image': ['match', ['get', 'class'], 'volcano', 'volcano_11', 'triangle_11'],
+            'icon-size': 1,
+            // Name on top; elevation in feet (grouped, e.g. "12,976 ft")
+            // on a second, smaller line. Peaks lacking ele_ft show name only.
+            'text-field': [
+                'case',
+                ['has', 'ele_ft'],
+                ['format',
+                    ['get', 'name'], {},
+                    '\n', {},
+                    ['concat',
+                        ['number-format', ['to-number', ['get', 'ele_ft']], { 'locale': 'en-US' }],
+                        ' ft',
+                    ],
+                    { 'font-scale': 0.82 },
+                ],
+                ['get', 'name'],
+            ],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 13,
+            'text-offset': [0, 0.75],
+            'text-anchor': 'top',
+            'text-optional': true,
+            // lower rank = more prominent peak; kept first on collision
+            'symbol-sort-key': ['to-number', ['get', 'rank'], 99],
+        },
+        paint: {
+            'text-color': textColor,
+            'text-halo-color': haloColor,
+            'text-halo-width': 1.4,
+            'text-halo-blur': 0.5,
+        },
+    });
+}
+
+/**
+ * Adds the ski-lift / aerialway system from the Liberty base source
+ * (openmaptiles `transportation`, class=aerialway — subclass gondola,
+ * chair_lift, t-bar, etc.). Liberty draws lift *station* icons via its
+ * poi layer (only at z15+) but no lift lines at all, so chairlifts /
+ * gondolas otherwise appear as disconnected points. Adds three layers:
+ *   - `${layerId}`        — the cable, a thin continuous line.
+ *   - `${layerId}-ticks`  — perpendicular crossbar ticks, via Liberty's
+ *     rail-hatching trick (a wide line with a tiny-dash `line-dasharray`
+ *     so each short dash renders as a crossbar).
+ *   - `${layerId}-station` — the blue `aerialway` station icon, pulled
+ *     down to z14 (lowest the `poi` source-layer carries it) and capped
+ *     at z15 (maxzoom) where Liberty's own poi_r1 takes over.
+ * Cable + ticks default to the station icon's blue so the system reads
+ * as one. No-op-safe: warns and returns if the source is absent.
+ *
+ * @param {maplibregl.Map} map
+ * @param {Object} [options]
+ * @param {string} [options.sourceId='openmaptiles']
+ * @param {string} [options.layerId='jt-aerialway']   base id; ticks/station use `${layerId}-ticks` / `-station`
+ * @param {string} [options.color='#4898ff']          cable + tick color (station icon is Liberty's, not recolored)
+ * @param {number} [options.minzoom=12]               cable + ticks floor
+ * @param {number} [options.stationMinzoom=14]        station icon floor
+ */
+function addJuicyTrailsSkiLifts(map, options = {}) {
+    const {
+        sourceId = 'openmaptiles',
+        layerId = 'jt-aerialway',
+        // Sky blue sampled from Liberty's own `aerialway` station icon
+        // (#4898ff), so the cable + ticks read as one system with the
+        // blue station markers.
+        color = '#4898ff',
+        minzoom = 12,
+        stationMinzoom = 14,
+    } = options;
+    const ticksId = `${layerId}-ticks`;
+    const stationId = `${layerId}-station`;
+
+    if (!map.getSource(sourceId)) {
+        console.warn(
+            `[juicytrails] addJuicyTrailsSkiLifts: source "${sourceId}" not found; ` +
+            'skipping (base style is not OpenFreeMap Liberty?).'
+        );
+        return;
+    }
+    [stationId, ticksId, layerId].forEach(id => {
+        if (map.getLayer(id)) map.removeLayer(id);
+    });
+
+    const aerialwayFilter = ['==', ['get', 'class'], 'aerialway'];
+
+    // The cable: thin continuous line.
+    map.addLayer({
+        id: layerId,
+        type: 'line',
+        source: sourceId,
+        'source-layer': 'transportation',
+        filter: aerialwayFilter,
+        minzoom,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+            'line-color': color,
+            'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.6, 16, 1.6],
+        },
+    });
+
+    // The ticks: a wide line whose tiny-dash pattern renders as
+    // perpendicular crossbars (butt caps keep them crisp). Mirrors
+    // Liberty's road_major_rail_hatching idiom.
+    map.addLayer({
+        id: ticksId,
+        type: 'line',
+        source: sourceId,
+        'source-layer': 'transportation',
+        filter: aerialwayFilter,
+        minzoom,
+        layout: { 'line-cap': 'butt' },
+        paint: {
+            'line-color': color,
+            'line-dasharray': [0.25, 5],
+            'line-width': ['interpolate', ['linear'], ['zoom'], 12, 2, 16, 5],
+        },
+    });
+
+    // Lift-station icons. Liberty only draws these via poi_r1 at z15+
+    // (rank-tiered POIs), so they pop in late. This pulls the aerialway
+    // station marker (the blue `aerialway` sprite icon) down to z14 —
+    // the lowest the `poi` source-layer carries data — then hands back
+    // to Liberty's poi_r1 at z15 (maxzoom) to avoid double-drawing.
+    map.addLayer({
+        id: stationId,
+        type: 'symbol',
+        source: sourceId,
+        'source-layer': 'poi',
+        filter: ['all',
+            ['==', ['get', 'class'], 'aerialway'],
+            ['==', ['get', 'subclass'], 'station'],
+        ],
+        minzoom: stationMinzoom,
+        maxzoom: 15,
+        layout: {
+            'icon-image': 'aerialway',
+            'icon-size': 1,
+        },
+    });
+}
+
+/**
+ * Moves every base-map *symbol* layer to the top of the layer stack so
+ * it renders above trails. This covers place/road/water labels, road &
+ * highway shields, POI icons + names (building/amenity labels), airport
+ * labels, and one-way arrows — i.e. anything Liberty draws as a symbol.
+ * Admin (state/county) and park boundary *lines* are lifted too.
+ * Iterating in style order and moving each to the top preserves
+ * Liberty's original relative order (and thus its collision priority);
+ * because boundary lines precede the symbols in Liberty's stack, they
+ * end up above trails but below the labels.
+ *
+ * Two kinds of symbol layer are intentionally left where they are:
+ *   - `contour-labels` — so Liberty place labels keep winning symbol
+ *     collisions against elevation numbers (street/town names would
+ *     otherwise hide behind contour labels).
+ *   - JT's own `jt-*` symbol layers (e.g. jt-mountain-peak) — already
+ *     placed deliberately; re-lifting would change their intended
+ *     collision order vs. place labels.
+ *
+ * Despite the historical name, this lifts more than labels; the name is
+ * kept because it's part of the public, consumer-referenced API.
  *
  * @param {maplibregl.Map} map
  */
@@ -663,12 +920,14 @@ function liftJuicyTrailsLabels(map) {
     if (!style || !style.layers) return;
     style.layers.forEach(layer => {
         const id = layer.id;
-        if (id === 'contour-labels') return;
-        if (id === 'highway-name-path' ||
-            id === 'highway-name-minor' ||
-            id === 'highway-name-major' ||
-            id.includes('label') ||
-            id.includes('name')) {
+        if (id === 'contour-labels' || id.startsWith('jt-')) return;
+        // Admin (state/county) + park boundary LINES also lift above
+        // trails. They sit before the symbols in Liberty's stack, so
+        // iterating in style order leaves them below the labels lifted
+        // afterward: boundaries above trails, labels above boundaries.
+        const isBoundaryLine = layer.type === 'line' &&
+            (layer['source-layer'] === 'boundary' || id === 'park_outline');
+        if (layer.type === 'symbol' || isBoundaryLine) {
             try { map.moveLayer(id); } catch (_) { /* skip */ }
         }
     });

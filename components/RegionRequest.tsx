@@ -10,7 +10,7 @@ const DEFAULT_CENTER: [number, number] = [-106.92, 38.87]; // Crested Butte
 const DEFAULT_ZOOM = 8;
 const STYLE_URL = "/liberty-style.json";
 const TRAILS_PMTILES_URL =
-  "pmtiles://https://pub-a1acba1578d9437aaa71b986c790e914.r2.dev/us_trails.pmtiles";
+  "pmtiles://https://pub-a1acba1578d9437aaa71b986c790e914.r2.dev/us_trails-v2-hd.pmtiles";
 
 const BOOK_URL = "https://calendar.app.google/HcRztFz6DJevB5776";
 
@@ -25,6 +25,8 @@ declare global {
     applyJuicyTrailsColorOverrides?: (map: maplibregl.Map) => void;
     addJuicyTrailsLayers?: (map: maplibregl.Map, sourceId: string) => void;
     addJuicyTrailsHillshade?: (map: maplibregl.Map, opts?: object) => void;
+    addJuicyTrailsPeaks?: (map: maplibregl.Map, opts?: object) => void;
+    addJuicyTrailsSkiLifts?: (map: maplibregl.Map, opts?: object) => void;
     liftJuicyTrailsLabels?: (map: maplibregl.Map) => void;
   }
 }
@@ -144,10 +146,13 @@ export default function RegionRequest() {
         // 2. Hillshade (AWS Terrarium DEM)
         try { window.addJuicyTrailsHillshade?.(map); } catch (e) { console.warn(e); }
 
-        // 3. Trails PMTiles source + 11 colored trail layers
+        // 3. Trails PMTiles source (v2-HD schema) + colored trail layers,
+        //    then peaks + ski lifts — same chain as the JuicyTrails webapp
         try {
           map.addSource("jt-trails", { type: "vector", url: TRAILS_PMTILES_URL });
           window.addJuicyTrailsLayers?.(map, "jt-trails");
+          window.addJuicyTrailsPeaks?.(map);
+          window.addJuicyTrailsSkiLifts?.(map);
         } catch (e) {
           console.warn("JT trails source/layers failed:", e);
         }
