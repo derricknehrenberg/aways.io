@@ -67,11 +67,23 @@ Deliberately split between two surfaces, correlated by email:
 - **Commits**: commit + push after every change (standing rule). Doc-only updates can go directly to `main`.
 - **DESIGN.md tokens**: when reaching for a color/spacing/component, check DESIGN.md first and add the token to `@theme` in `globals.css` rather than inventing.
 
-## Pending handoffs
+## Live infrastructure (completed July 2, 2026 — handoffs done)
 
-- `SUBMISSION_URL` empty — paste deployed Apps Script web app URL once Derrick has stood up the Sheet + Apps Script.
-- Netlify connection — repo not yet linked to a Netlify site. Connect when ready to go live; `@netlify/plugin-nextjs` auto-detects.
-- `aways.io` DNS — not yet pointed at Netlify. Configure at Namecheap after the Netlify site is up.
+The site is LIVE. Every push to `main` auto-deploys to production at aways.io.
+
+- **Apps Script intake**: deployed as web app "AWAYS intake" (execute as Derrick, access: Anyone), bound to the "AWAYS scoping requests" Google Sheet. Its URL is wired into `SUBMISSION_URL` in `RegionRequest.tsx`. Verified end-to-end (test POST → sheet row).
+- **Netlify**: project `aways-io` on the AWAYS team, deploys from GitHub `main`, Next.js Runtime auto-detected. Form detection enabled; `aways-scoping-request` form registered via `public/__forms.html`.
+- **DNS** (Namecheap): `A @ → 75.2.60.5`, `CNAME www → aways-io.netlify.app`. Let's Encrypt cert via Netlify.
+- **Baseline tag**: `v0-intake-baseline` marks the verified-working intake flow. If a redesign breaks the map or form, diff against or roll back to this tag.
+
+## Redesign invariants — do not break while iterating on content/design
+
+The July 2026 site is a functional test of the draw-region + scoping-call flow, not final content — a substantial content/design pass is expected. While making it:
+
+1. **Form field names** (`email`, `note`, `bbox`, `josm_url`; form name `aways-scoping-request`) are contract-bound in three places: `RegionRequest.tsx`, `public/__forms.html`, and the Apps Script `doPost`. Change them in lockstep or not at all.
+2. **`SUBMISSION_URL`** must keep pointing at the deployed Apps Script; the POST stays `text/plain` (avoids CORS preflight).
+3. **`public/juicytrails-style.js`** stays vendored — never edit it here.
+4. **Pushes to `main` go straight to production.** For multi-commit redesign work, use a branch and merge when ready; the commit-after-every-change rule still applies on the branch.
 
 ## Known non-blocking warnings
 
