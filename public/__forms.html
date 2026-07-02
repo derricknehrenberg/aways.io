@@ -1,0 +1,16 @@
+<!--
+  Static mirror of the RegionRequest form so Netlify's build-time form
+  detection registers "aways-scoping-request". Never rendered to users.
+  Field names must stay in sync with components/RegionRequest.tsx.
+-->
+<html>
+  <body>
+    <form name="aways-scoping-request" method="POST" data-netlify="true">
+      <input type="hidden" name="form-name" value="aways-scoping-request" />
+      <input type="hidden" name="bbox" />
+      <input type="hidden" name="josm_url" />
+      <input type="email" name="email" />
+      <textarea name="note"></textarea>
+    </form>
+  </body>
+</html>
