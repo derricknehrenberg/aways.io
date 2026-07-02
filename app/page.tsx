@@ -13,11 +13,11 @@ export default function Home() {
             </span>
           </div>
           <nav className="text-sm text-ink-subtle">
-            <a href="#how" className="mr-6 hover:text-ink transition-colors">
-              How it works
+            <a href="#call" className="mr-6 hover:text-ink transition-colors">
+              The first call
             </a>
-            <a href="#schedule" className="hover:text-ink transition-colors">
-              Schedule
+            <a href="#how" className="hover:text-ink transition-colors">
+              Your region
             </a>
           </nav>
         </div>
@@ -32,23 +32,44 @@ export default function Home() {
           Grade A mapping for the places that depend on it.
         </h1>
         <p className="mt-7 text-lg text-ink-muted max-w-2xl leading-relaxed">
-          AWAYS makes outdoor data accurate — every trail mapped, every
-          connector included, every closure reflected, every name correct.
-          We&apos;re the OSM-native organization that figured out the economics
-          for work the trail-mapping community has been trying to fund for
-          years. The data we produce stays open. What your organization pays
-          for is consistent accuracy, kept current.
+          AWAYS makes public outdoor data accurate — every trail mapped, every
+          connector included, every closure reflected, every name correct. The
+          work lives in OpenStreetMap, where nearly every outdoor app already
+          looks, and it stays open. What your organization pays for is
+          accuracy, kept current.
         </p>
+      </section>
+
+      <section id="call" className="mx-auto max-w-6xl px-6 pb-24">
+        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">
+          We won&apos;t assume we know your problem.
+        </h2>
+        <div className="mt-5 text-ink-muted max-w-2xl leading-relaxed space-y-4">
+          <p>
+            Every region is different. Maybe you have good trail data and no
+            way to get it in front of the public. Maybe wayfinding on the
+            ground doesn&apos;t match what visitors see in their apps. Maybe
+            the problem is something else entirely — and whether mapping is
+            even the fix isn&apos;t obvious yet.
+          </p>
+          <p>
+            That&apos;s what the first call is for. Fifteen minutes: you
+            describe your situation, we listen. If we can help, we&apos;ll
+            tell you how. If we can&apos;t, we&apos;ll say so plainly — and
+            either way you&apos;ll leave with an honest read on where your
+            region stands.
+          </p>
+        </div>
       </section>
 
       <section id="how" className="mx-auto max-w-6xl px-6 pb-24">
         <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">
-          Tell us about your region
+          Show us your region
         </h2>
         <p className="mt-3 text-ink-muted max-w-2xl">
-          Draw a bounding box around the area you&apos;d like mapped. Leave a
-          note. We&apos;ll get back to you to schedule a 15-minute scoping
-          call.
+          Draw a rough box around the area on your mind. Tell us about your
+          organization and the situation in your own words — however it looks
+          from where you sit. We&apos;ll get back to you to schedule the call.
         </p>
         <div className="mt-10">
           <RegionRequest />
