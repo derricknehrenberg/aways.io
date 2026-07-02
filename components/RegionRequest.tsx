@@ -17,7 +17,8 @@ const BOOK_URL = "https://calendar.app.google/HcRztFz6DJevB5776";
 // Paste the deployed Google Apps Script Web app URL here once set up.
 // Form submissions append a row to your "AWAYS scoping requests" Google Sheet.
 // Setup instructions: scripts/aways-intake.gs
-const SUBMISSION_URL = "";
+const SUBMISSION_URL =
+  "https://script.google.com/macros/s/AKfycbzb_QclRSP9xN3BLbqD9VsKsRG9IOnG2pLNDWkWSvzi9WEvBscssCmJZhiSEl0U3CiCJA/exec";
 
 declare global {
   interface Window {
