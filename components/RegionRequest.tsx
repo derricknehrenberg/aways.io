@@ -6,19 +6,34 @@ import { Protocol } from "pmtiles";
 
 type BBox = { west: number; south: number; east: number; north: number };
 
-const DEFAULT_CENTER: [number, number] = [-106.92, 38.87]; // Crested Butte
-const DEFAULT_ZOOM = 8;
+const DEFAULT_CENTER: [number, number] = [-106.95, 38.75]; // Gunnison Valley
+const DEFAULT_ZOOM = 10;
 const STYLE_URL = "/liberty-style.json";
 const TRAILS_PMTILES_URL =
   "pmtiles://https://pub-a1acba1578d9437aaa71b986c790e914.r2.dev/us_trails-v2-hd.pmtiles";
 
 const BOOK_URL = "https://calendar.app.google/HcRztFz6DJevB5776";
 
-// Paste the deployed Google Apps Script Web app URL here once set up.
-// Form submissions append a row to your "AWAYS scoping requests" Google Sheet.
+// Deployed Google Apps Script Web app URL ("AWAYS intake").
+// Form submissions append a row to the "AWAYS scoping requests" Google Sheet.
 // Setup instructions: scripts/aways-intake.gs
 const SUBMISSION_URL =
   "https://script.google.com/macros/s/AKfycbzb_QclRSP9xN3BLbqD9VsKsRG9IOnG2pLNDWkWSvzi9WEvBscssCmJZhiSEl0U3CiCJA/exec";
+
+// Station readout — REAL figures, pulled live from OpenStreetMap via
+// Overpass on 2026-07-02 for the frame below (highway = path / footway /
+// cycleway / bridleway / track). Refresh manually until the certification
+// engine automates the pass. The gaps are the point: this is what a region
+// looks like before Grade A.
+const READOUT = {
+  region: "GUNNISON VALLEY, CO",
+  frame: "38.41–39.09 N · 107.21–106.44 W",
+  pulled: "2026-07-02",
+  segments: "3,484",
+  trailMiles: "≈ 2,707",
+  named: "1,468 / 3,484 · 42 %",
+  surfaced: "1,674 / 3,484 · 48 %",
+};
 
 declare global {
   interface Window {
@@ -36,42 +51,6 @@ function ensurePmtilesProtocol() {
   if (typeof window === "undefined" || pmtilesProtocolRegistered) return;
   maplibregl.addProtocol("pmtiles", new Protocol().tile);
   pmtilesProtocolRegistered = true;
-}
-
-class JtAttributionControl implements maplibregl.IControl {
-  private container: HTMLDivElement | null = null;
-
-  onAdd(): HTMLElement {
-    this.container = document.createElement("div");
-    this.container.className = "maplibregl-ctrl attribution-control collapsed";
-
-    const button = document.createElement("button");
-    button.className = "attribution-toggle";
-    button.type = "button";
-    button.title = "Map credits";
-    button.innerHTML =
-      '<span style="font-family:Georgia,Times,serif;font-size:15px;font-style:italic;font-weight:bold;">i</span>';
-
-    const text = document.createElement("div");
-    text.className = "attribution-text";
-    text.innerHTML =
-      "JuicyTrails &copy; | OpenFreeMap &copy; | MapLibre | Data from OpenStreetMap";
-
-    button.addEventListener("click", () => {
-      if (!this.container) return;
-      this.container.classList.toggle("collapsed");
-      this.container.classList.toggle("expanded");
-    });
-
-    this.container.appendChild(button);
-    this.container.appendChild(text);
-    return this.container;
-  }
-
-  onRemove(): void {
-    this.container?.parentNode?.removeChild(this.container);
-    this.container = null;
-  }
 }
 
 function loadJtStyleScript(): Promise<void> {
@@ -102,18 +81,35 @@ function bboxToJosmUrl(b: BBox): string {
   return `http://127.0.0.1:8111/load_and_zoom?left=${b.west}&right=${b.east}&top=${b.north}&bottom=${b.south}`;
 }
 
-function formatCoord(n: number) {
-  return n.toFixed(5);
+function Tri({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 60 60" aria-hidden="true">
+      <use href="#awtri" />
+    </svg>
+  );
 }
 
 export default function RegionRequest() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const armedRef = useRef(false);
+  const drawingRef = useRef(false);
+  const startRef = useRef<maplibregl.LngLat | null>(null);
 
-  const [drawing, setDrawing] = useState(false);
-  const [firstCorner, setFirstCorner] = useState<[number, number] | null>(null);
+  const [armed, setArmed] = useState(false);
   const [bbox, setBbox] = useState<BBox | null>(null);
+  const [center, setCenter] = useState({ lat: 38.75, lng: -106.95, z: 10 });
   const [submitted, setSubmitted] = useState(false);
+
+  // Keep refs in sync for the map event closures
+  useEffect(() => {
+    armedRef.current = armed;
+    const map = mapRef.current;
+    if (!map) return;
+    map.getCanvas().style.cursor = armed ? "crosshair" : "";
+    if (armed) map.dragPan.disable();
+    else if (!drawingRef.current) map.dragPan.enable();
+  }, [armed]);
 
   // Init map once
   useEffect(() => {
@@ -137,17 +133,11 @@ export default function RegionRequest() {
         zoom: DEFAULT_ZOOM,
         attributionControl: false,
       });
-      map.addControl(new maplibregl.NavigationControl(), "top-right");
-      map.addControl(new JtAttributionControl(), "bottom-right");
+
       map.on("load", () => {
-        // 1. JT color palette over Liberty layers
+        // Same chain as the JuicyTrails webapp
         try { window.applyJuicyTrailsColorOverrides?.(map); } catch (e) { console.warn(e); }
-
-        // 2. Hillshade (AWS Terrarium DEM)
         try { window.addJuicyTrailsHillshade?.(map); } catch (e) { console.warn(e); }
-
-        // 3. Trails PMTiles source (v2-HD schema) + colored trail layers,
-        //    then peaks + ski lifts — same chain as the JuicyTrails webapp
         try {
           map.addSource("jt-trails", { type: "vector", url: TRAILS_PMTILES_URL });
           window.addJuicyTrailsLayers?.(map, "jt-trails");
@@ -156,11 +146,9 @@ export default function RegionRequest() {
         } catch (e) {
           console.warn("JT trails source/layers failed:", e);
         }
-
-        // 4. Lift Liberty labels above trails
         try { window.liftJuicyTrailsLabels?.(map); } catch (e) { console.warn(e); }
 
-        // 5. bbox layers on top of everything
+        // bbox scratch layers, inked in the station's own hand
         map.addSource("bbox", {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
@@ -169,15 +157,67 @@ export default function RegionRequest() {
           id: "bbox-fill",
           type: "fill",
           source: "bbox",
-          paint: { "fill-color": "#5e6ad2", "fill-opacity": 0.18 },
+          paint: { "fill-color": "#16130d", "fill-opacity": 0.06 },
         });
         map.addLayer({
           id: "bbox-line",
           type: "line",
           source: "bbox",
-          paint: { "line-color": "#5e6ad2", "line-width": 2 },
+          paint: { "line-color": "#16130d", "line-width": 2, "line-dasharray": [2, 2] },
         });
       });
+
+      // Live center readout chip
+      const readout = () => {
+        const c = map.getCenter();
+        setCenter({ lat: c.lat, lng: c.lng, z: map.getZoom() });
+      };
+      map.on("move", readout);
+      map.on("zoom", readout);
+
+      // Drag-to-draw bounding box
+      const boxGeoJSON = (a: maplibregl.LngLat, b: maplibregl.LngLat) => {
+        const w = Math.min(a.lng, b.lng), e = Math.max(a.lng, b.lng);
+        const s = Math.min(a.lat, b.lat), n = Math.max(a.lat, b.lat);
+        return {
+          box: { west: w, south: s, east: e, north: n } as BBox,
+          gj: {
+            type: "FeatureCollection" as const,
+            features: [{
+              type: "Feature" as const,
+              properties: {},
+              geometry: {
+                type: "Polygon" as const,
+                coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]],
+              },
+            }],
+          },
+        };
+      };
+      const paint = (a: maplibregl.LngLat, b: maplibregl.LngLat) => {
+        const src = map.getSource("bbox") as maplibregl.GeoJSONSource | undefined;
+        if (src) src.setData(boxGeoJSON(a, b).gj);
+      };
+
+      map.on("mousedown", (ev) => {
+        if (!armedRef.current) return;
+        ev.preventDefault();
+        drawingRef.current = true;
+        startRef.current = ev.lngLat;
+      });
+      map.on("mousemove", (ev) => {
+        if (drawingRef.current && startRef.current) paint(startRef.current, ev.lngLat);
+      });
+      map.on("mouseup", (ev) => {
+        if (!drawingRef.current || !startRef.current) return;
+        drawingRef.current = false;
+        const { box } = boxGeoJSON(startRef.current, ev.lngLat);
+        paint(startRef.current, ev.lngLat);
+        startRef.current = null;
+        setBbox(box);
+        setArmed(false);
+      });
+
       mapRef.current = map;
     })();
 
@@ -187,77 +227,6 @@ export default function RegionRequest() {
       mapRef.current = null;
     };
   }, []);
-
-  // Click handler for draw mode
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !drawing) return;
-
-    map.getCanvas().style.cursor = "crosshair";
-
-    const onClick = (e: maplibregl.MapMouseEvent) => {
-      const lngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-      if (!firstCorner) {
-        setFirstCorner(lngLat);
-      } else {
-        const newBbox: BBox = {
-          west: Math.min(firstCorner[0], lngLat[0]),
-          east: Math.max(firstCorner[0], lngLat[0]),
-          south: Math.min(firstCorner[1], lngLat[1]),
-          north: Math.max(firstCorner[1], lngLat[1]),
-        };
-        setBbox(newBbox);
-        setDrawing(false);
-        setFirstCorner(null);
-      }
-    };
-
-    map.on("click", onClick);
-    return () => {
-      map.off("click", onClick);
-      map.getCanvas().style.cursor = "";
-    };
-  }, [drawing, firstCorner]);
-
-  // Render bbox polygon
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const apply = () => {
-      const src = map.getSource("bbox") as maplibregl.GeoJSONSource | undefined;
-      if (!src) return;
-      if (bbox) {
-        src.setData({
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "Polygon",
-            coordinates: [
-              [
-                [bbox.west, bbox.south],
-                [bbox.east, bbox.south],
-                [bbox.east, bbox.north],
-                [bbox.west, bbox.north],
-                [bbox.west, bbox.south],
-              ],
-            ],
-          },
-        });
-      } else {
-        src.setData({ type: "FeatureCollection", features: [] });
-      }
-    };
-    if (map.isStyleLoaded()) apply();
-    else map.once("load", apply);
-  }, [bbox]);
-
-  const drawButtonLabel = !drawing
-    ? bbox
-      ? "Redraw region"
-      : "Draw region"
-    : firstCorner
-      ? "Click second corner"
-      : "Click first corner";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -298,140 +267,176 @@ export default function RegionRequest() {
     setSubmitted(true);
   }
 
-  if (submitted) {
-    return (
-      <div className="rounded-lg border border-hairline bg-surface-1 p-8 max-w-2xl">
-        <h3 className="text-xl font-semibold tracking-tight">
-          Got your region and note.
-        </h3>
-        <p className="mt-2 text-ink-muted">
-          Last step — pick a 15-minute slot for the scoping call. Use the same
-          email on the booking page so we can match it to what you just
-          submitted.
-        </p>
-        <a
-          href={BOOK_URL}
-          target={BOOK_URL.startsWith("http") ? "_blank" : undefined}
-          rel={BOOK_URL.startsWith("http") ? "noreferrer" : undefined}
-          className="mt-5 inline-flex items-center rounded-md bg-primary px-4 py-2 text-[14px] font-medium text-on-primary hover:bg-primary-hover transition-colors"
-        >
-          Book a 15-min scoping call
-        </a>
-      </div>
-    );
-  }
+  const bboxDisplay = bbox
+    ? `${bbox.west.toFixed(4)}, ${bbox.south.toFixed(4)}, ${bbox.east.toFixed(4)}, ${bbox.north.toFixed(4)}`
+    : "";
 
   return (
-    <form
-      name="aways-scoping-request"
-      method="POST"
-      data-netlify="true"
-      onSubmit={handleSubmit}
-      className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6"
-    >
-      <input type="hidden" name="form-name" value="aways-scoping-request" />
-      <input
-        type="hidden"
-        name="bbox"
-        value={bbox ? JSON.stringify(bbox) : ""}
-      />
-      <input
-        type="hidden"
-        name="josm_url"
-        value={bbox ? bboxToJosmUrl(bbox) : ""}
-      />
-
-      <div className="relative">
-        <div
-          ref={mapContainer}
-          className="h-[480px] w-full rounded-lg overflow-hidden border border-hairline outline-none [&_canvas]:outline-none"
-        />
-        <div className="absolute top-3 left-3 z-10 flex gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (!drawing) {
-                setDrawing(true);
-                setFirstCorner(null);
-                setBbox(null);
-              } else {
-                setDrawing(false);
-                setFirstCorner(null);
-              }
-            }}
-            className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
-              drawing
-                ? "bg-primary text-on-primary"
-                : "bg-surface-1/95 text-ink border border-hairline hover:bg-surface-2"
-            }`}
-          >
-            {drawButtonLabel}
-          </button>
-          {bbox && !drawing && (
-            <button
-              type="button"
-              onClick={() => setBbox(null)}
-              className="rounded-md px-3 py-2 text-[13px] font-medium bg-surface-1/95 text-ink border border-hairline hover:bg-surface-2 transition-colors"
-            >
-              Clear
-            </button>
-          )}
-        </div>
+    <div className="instrument">
+      <div className="inst-head">
+        <span>INSTRUMENT 01 — LIVE READOUT · EXAMPLE REGION: GUNNISON VALLEY, COLORADO, USA</span>
+        <span className="dim">TILESET us_trails-v2-hd.pmtiles · BASE liberty/openfreemap · DATUM WGS84</span>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <div>
-          <label className="block text-[13px] font-medium text-ink-muted">
-            Region (bounding box)
-          </label>
-          <div className="mt-2 rounded-md border border-hairline bg-surface-1 p-3 text-[13px] font-mono text-ink-muted leading-relaxed min-h-[68px]">
-            {bbox ? (
-              <>
-                <div>W {formatCoord(bbox.west)} &nbsp; S {formatCoord(bbox.south)}</div>
-                <div>E {formatCoord(bbox.east)} &nbsp; N {formatCoord(bbox.north)}</div>
-              </>
-            ) : (
-              <span className="text-ink-tertiary">Draw a region on the map.</span>
-            )}
+      {/* ---- left rail ---- */}
+      <div className="rail">
+        <section>
+          <h2><Tri className="tri" /> Station readout</h2>
+          <p className="sub">example region · figures pulled live from OSM · {READOUT.pulled}</p>
+          <div className="ledger">
+            <div className="lrow"><span className="k">REGION</span><span className="lead" /><span className="v">{READOUT.region}</span></div>
+            <div className="lrow"><span className="k">FRAME</span><span className="lead" /><span className="v">{READOUT.frame}</span></div>
+            <div className="lrow"><span className="k">SEGMENTS MAPPED</span><span className="lead" /><span className="v">{READOUT.segments}</span></div>
+            <div className="lrow"><span className="k">TRAIL MILES</span><span className="lead" /><span className="v">{READOUT.trailMiles}</span></div>
+            <div className="lrow"><span className="k">NAMED</span><span className="lead" /><span className="v">{READOUT.named}</span></div>
+            <div className="lrow"><span className="k">SURFACE TAGGED</span><span className="lead" /><span className="v">{READOUT.surfaced}</span></div>
+            <div className="lrow"><span className="k">FIELD SURVEY</span><span className="lead" /><span className="v">on foot · by bike · by ski</span></div>
+            <div className="lrow"><span className="k">GRADE</span><span className="lead" /><span className="v"><b>IN ASSESSMENT</b></span></div>
+            <p className="note">
+              Real figures from the public OpenStreetMap database — gaps included.
+              This is what a region looks like before Grade A. Nothing here is
+              proprietary; the accuracy is the deliverable.
+            </p>
           </div>
-        </div>
+        </section>
 
-        <div>
-          <label htmlFor="email" className="block text-[13px] font-medium text-ink-muted">
-            Your email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            placeholder="you@organization.org"
-            className="mt-2 w-full rounded-md border border-hairline bg-surface-1 px-3 py-2 text-[14px] placeholder:text-ink-tertiary focus:outline-none focus:border-primary-focus"
-          />
-        </div>
+        <section>
+          <h2><Tri className="tri" /> Line key — trail classes</h2>
+          <div className="key">
+            <div><span className="sw" style={{ background: "rgb(236,82,250)" }} />Hike</div>
+            <div><span className="sw" style={{ background: "rgb(150,49,252)" }} />Hike + Horse</div>
+            <div><span className="sw" style={{ background: "#faba0a" }} />Bicycle</div>
+            <div><span className="sw" style={{ background: "rgb(255,128,0)" }} />Bicycle + Horse</div>
+            <div><span className="sw" style={{ background: "rgb(0,0,255)" }} />Bike Rec Path</div>
+            <div><span className="sw" style={{ background: "rgb(2,115,17)" }} />Motorcycle</div>
+            <div><span className="sw" style={{ background: "rgb(91,197,52)" }} />ATV</div>
+            <div><span className="sw dash-p" />Path</div>
+            <div><span className="sw" style={{ background: "rgb(159,89,15)" }} />Track</div>
+            <div><span className="sw dash-b" />4WD Track</div>
+            <div><span className="sw dash-r" />Informal Path</div>
+            <div><span className="sw" style={{ background: "rgb(146,101,174)" }} />Sidewalk &amp; Footpath</div>
+            <div><span className="sw dash-k" />No Access</div>
+          </div>
+        </section>
 
-        <div>
-          <label htmlFor="note" className="block text-[13px] font-medium text-ink-muted">
-            Note
-          </label>
-          <textarea
-            id="note"
-            name="note"
-            rows={5}
-            required
-            placeholder="A few sentences about the region, your organization, and what you're hoping to do."
-            className="mt-2 w-full rounded-md border border-hairline bg-surface-1 px-3 py-2 text-[14px] placeholder:text-ink-tertiary focus:outline-none focus:border-primary-focus resize-none"
-          />
-        </div>
+        <section className="request">
+          <h2><Tri className="tri" /> Show us your region</h2>
+          {submitted ? (
+            <div className="received">
+              <div className="head">// TRANSMISSION RECEIVED [OK]</div>
+              <p>
+                Got your region and note. Last step — pick a 15-minute slot for
+                the scoping call. Use the same email on the booking page so we
+                can match it to what you just sent.
+              </p>
+              <a className="book" href={BOOK_URL} target="_blank" rel="noreferrer">
+                [ BOOK THE 15-MIN CALL ]
+              </a>
+            </div>
+          ) : (
+            <>
+              <p>
+                Draw a rough box around the area on your mind. Tell us about
+                your organization and the situation in your own words — however
+                it looks from where you sit. We&apos;ll get back to you to
+                schedule the call.
+              </p>
+              <form
+                name="aways-scoping-request"
+                method="POST"
+                data-netlify="true"
+                onSubmit={handleSubmit}
+              >
+                <input type="hidden" name="form-name" value="aways-scoping-request" />
+                <input type="hidden" name="bbox" value={bbox ? JSON.stringify(bbox) : ""} />
+                <input type="hidden" name="josm_url" value={bbox ? bboxToJosmUrl(bbox) : ""} />
 
-        <button
-          type="submit"
-          disabled={!bbox}
-          className="rounded-md bg-primary px-4 py-2.5 text-[14px] font-medium text-on-primary hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Request scoping call
-        </button>
+                <div className="field">
+                  <label htmlFor="bbox-display">
+                    <span>Region</span>
+                    <span className="st">{bbox ? "bounding box · W,S,E,N [OK]" : "bounding box · W,S,E,N"}</span>
+                  </label>
+                  <input
+                    id="bbox-display"
+                    type="text"
+                    readOnly
+                    value={bboxDisplay}
+                    placeholder="— draw on the chart →"
+                  />
+                </div>
+                <div className="btnrow" style={{ margin: "-4px 0 14px" }}>
+                  <button
+                    type="button"
+                    className={`ghost${armed ? " armed" : ""}`}
+                    onClick={() => setArmed(!armed)}
+                  >
+                    {armed ? "[ ARMED — DRAG A BOX ON THE CHART ]" : bbox ? "[ REDRAW ]" : "[ DRAW BOX ON MAP ]"}
+                  </button>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="email"><span>Your email</span></label>
+                  <input id="email" name="email" type="email" required placeholder="you@organization.org" />
+                </div>
+                <div className="field">
+                  <label htmlFor="note"><span>Note</span></label>
+                  <textarea id="note" name="note" required placeholder="What's going on in your region?" />
+                </div>
+                <div className="btnrow">
+                  <button type="submit" disabled={!bbox}>Request scoping call</button>
+                </div>
+              </form>
+            </>
+          )}
+        </section>
       </div>
-    </form>
+
+      {/* ---- map ---- */}
+      <div className="mapcell">
+        <div ref={mapContainer} className="map" />
+
+        <svg className="xhair" viewBox="0 0 38 38" aria-hidden="true">
+          <g stroke="#16130d" strokeWidth="1.5">
+            <line x1="19" y1="0" x2="19" y2="13" />
+            <line x1="19" y1="25" x2="19" y2="38" />
+            <line x1="0" y1="19" x2="13" y2="19" />
+            <line x1="25" y1="19" x2="38" y2="19" />
+          </g>
+        </svg>
+
+        <div className="chip tl">DRAG TO PAN · SCROLL TO ZOOM · HILLSHADE ON</div>
+        <div className="chip bl">
+          {`CTR ${center.lat.toFixed(4)} ${center.lat >= 0 ? "N" : "S"} · ${Math.abs(center.lng).toFixed(4)} ${center.lng <= 0 ? "W" : "E"} · Z ${center.z.toFixed(1)}`}
+        </div>
+        <div className="chip br">MAP © OPENFREEMAP · © OPENSTREETMAP CONTRIBUTORS</div>
+
+        {/* the one gold thing on this page */}
+        <svg className="seal" viewBox="0 0 200 200" aria-label="Grade A seal">
+          <defs>
+            <path id="sealArc" d="M100,100 m-71,0 a71,71 0 1,1 142,0 a71,71 0 1,1 -142,0" />
+          </defs>
+          <circle cx="100" cy="100" r="95" fill="none" stroke="currentColor" strokeWidth="3.5" />
+          <circle cx="100" cy="100" r="88" fill="none" stroke="currentColor" strokeWidth="1.25" />
+          <circle cx="100" cy="100" r="56" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <text
+            fontFamily="ui-monospace, Menlo, Consolas, 'Courier New', monospace"
+            fontSize="12.5" letterSpacing="2.6" fill="currentColor" fontWeight="700"
+          >
+            <textPath href="#sealArc">AWAYS · FIELD VERIFIED · KEPT CURRENT ·</textPath>
+          </text>
+          <use href="#awtri" x="86" y="56" width="28" height="28" />
+          <text
+            x="100" y="95" textAnchor="middle"
+            fontFamily="ui-monospace, Menlo, Consolas, 'Courier New', monospace"
+            fontSize="11" letterSpacing="4" fill="currentColor" fontWeight="700"
+          >GRADE</text>
+          <text
+            x="100" y="141" textAnchor="middle"
+            fontFamily="ui-monospace, Menlo, Consolas, 'Courier New', monospace"
+            fontSize="52" fill="currentColor" fontWeight="700"
+          >A</text>
+        </svg>
+      </div>
+    </div>
   );
 }

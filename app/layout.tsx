@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], display: "swap" });
-
 export const metadata: Metadata = {
-  title: "AWAYS — Professional Grade A mapping",
+  title: "AWAYS · Field Station — Grade A OpenStreetMap services",
   description:
-    "AWAYS makes outdoor data Grade A: every trail mapped, every connector included, every closure reflected. OpenStreetMap-native, organization-funded.",
+    "AWAYS makes public outdoor data accurate — every trail mapped, every connector included, every closure reflected, every name correct. The work lives in OpenStreetMap and stays open.",
 };
 
 export default function RootLayout({
@@ -15,9 +12,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-canvas text-ink antialiased`}>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
