@@ -11,21 +11,39 @@ The public marketing site for AWAYS — the professional Grade A mapping arm of 
 ## Stack
 
 - Next.js 16 (App Router, Turbopack), TypeScript
-- Tailwind v4 with `@theme` tokens in `app/globals.css` (subset of DESIGN.md, Linear-inspired)
-- MapLibre GL JS for the region selector
-- `pmtiles` for byte-range trail tile fetching
-- Vendored `juicytrails-style.js` for the JT color palette / layers / hillshade pipeline
+- **Design: "FIELD STATION"** (chosen July 2026, see DESIGN-ROADMAP.md) — monospace
+  system stack, paper/ink/gold palette (`--paper #f5f1e6`, `--ink #16130d`,
+  `--gold #b8921f`), custom CSS in `app/globals.css`. Square corners, 2px ink
+  borders, old-web link colors, wit-with-intent (live UTC clock, blinking
+  cursors, [OK] flags). The old Linear-derived DESIGN.md is superseded —
+  reference only. Brand mark: **Mark 03 "The Field"** (`public/mark-03.svg`,
+  favicon `app/icon.svg`) — gold Grade A region holding the black mountain.
+- MapLibre GL JS for the region selector; `pmtiles` for byte-range tile fetching
+- Vendored `juicytrails-style.js` for the JT palette / layers / hillshade / peaks / ski lifts
 - Google Apps Script + Google Sheet for form intake (no email notifications)
 - Google Calendar appointment scheduling for the 15-min booking step
-- Netlify (target host; not yet connected at time of writing)
+- Netlify (live; push to `main` = production deploy)
+
+## Station readout figures
+
+The ledger in `components/RegionRequest.tsx` (`READOUT` constant) holds REAL
+figures pulled from OpenStreetMap via Overpass for the Gunnison frame
+(38.41–39.09 N, 107.21–106.44 W; highway=path|footway|cycleway|bridleway|track).
+Last pulled 2026-07-02. Refresh manually (Overpass count queries + geometry
+length sum) until the certification engine automates the pass — never invent
+figures; honest gaps (42% named) are deliberate: "this is what a region looks
+like before Grade A." GRADE reads IN ASSESSMENT until a real certification
+exists.
 
 ## File map
 
-- `app/layout.tsx` — root, Inter font, dark canvas, antialiased
-- `app/page.tsx` — header / hero / "Tell us about your region" section / footer
-- `app/globals.css` — `@theme` tokens, base body styles, JT-style attribution control CSS
-- `components/AwaysLogo.tsx` — inline SVG of the AWAYS mark. Bars rendered with `var(--color-canvas)` so they cut as gaps through the white triangle on dark surfaces. `withWordmark` toggle for hero vs header use.
-- `components/RegionRequest.tsx` — the only client-component island: MapLibre map, two-click bbox draw, form, post-submit screen, Apps Script POST.
+- `app/layout.tsx` — root, metadata, system mono via globals
+- `app/page.tsx` — masthead (clock) / hero (Mark 03) / instrument / transmission / footer; defines the shared `#awtri` SVG symbol every mark stamps from
+- `app/globals.css` — the whole Field Station design system (custom CSS, element-level)
+- `app/icon.svg` — Mark 03 favicon
+- `components/StationClock.tsx` — ticking UTC clock (client)
+- `components/AwaysLogo.tsx` — LEGACY striped mark, no longer rendered (kept for history)
+- `components/RegionRequest.tsx` — the instrument: readout ledger (`READOUT` constant), line key, request form, MapLibre map with drag-to-draw bbox, live center chip, Grade A seal, post-submit screen, Apps Script POST.
 - `public/juicytrails-style.js` — vendored from `github.com/derricknehrenberg/juicytrails-pm-style` via the JuicyTrails app. Don't edit directly; updates flow from the upstream repo.
 - `public/AWAYS_logo.svg` — original Illustrator export. The `AwaysLogo` component reimplements it inline so the bar fills can be themed.
 - `scripts/aways-intake.gs` — Google Apps Script source for the form-intake web app. Setup steps in its header comment.
