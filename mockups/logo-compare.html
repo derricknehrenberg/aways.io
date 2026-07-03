@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AWAYS mark — MARK 02 vs MARK 03</title>
+<style>
+  :root{ --ink:#16130d; --paper:#f2efe6; --gold:#b8921f; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ background:var(--paper); color:var(--ink);
+        font-family:"Courier New", ui-monospace, monospace; padding:40px 48px; }
+  h1{ font-size:20px; letter-spacing:.12em; font-weight:700; }
+  .sub{ font-size:12px; letter-spacing:.14em; color:#6b6555; margin-top:6px; text-transform:uppercase; }
+  hr{ border:0; border-top:2px solid var(--ink); margin:24px 0 0; }
+
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:0; border:2px solid var(--ink); margin-top:24px; }
+  .col{ padding:28px; }
+  .col + .col{ border-left:2px solid var(--ink); }
+  .col h2{ font-size:13px; letter-spacing:.18em; font-weight:700; text-transform:uppercase;
+           border-bottom:1px solid var(--ink); padding-bottom:8px; }
+  .col .note{ font-size:11px; letter-spacing:.06em; color:#6b6555; margin-top:6px; }
+
+  .row{ display:flex; align-items:flex-end; gap:36px; margin-top:28px; flex-wrap:wrap; }
+  .cell{ text-align:center; }
+  .cell small{ display:block; font-size:10px; letter-spacing:.12em; margin-top:8px; color:#6b6555; }
+
+  .swatch{ display:flex; gap:0; margin-top:28px; border:1px solid var(--ink); }
+  .swatch > div{ flex:1; padding:22px 0; display:flex; align-items:center; justify-content:center; }
+  .on-paper{ background:var(--paper); }
+  .on-black{ background:#0d0b08; }
+  .on-gold{ background:var(--gold); }
+  .caption{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#6b6555; margin-top:6px; }
+</style>
+</head>
+<body>
+
+<h1>AWAYS MARK — COMPARISON SHEET</h1>
+<p class="sub">Mark 02 (the seam) vs Mark 03 (the field) · same gold #b8921f · same ink</p>
+<hr/>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- MARK 02: black peak / gold boundary seam / black base -->
+    <symbol id="mark02" viewBox="0 0 60 60">
+      <polygon fill="currentColor" points="30,4 50.7,44 9.3,44"/>
+      <polygon fill="var(--gold,#b8921f)" points="9.3,44 50.7,44 52.8,48 7.2,48"/>
+      <polygon fill="currentColor" points="7.2,48 52.8,48 58,58 2,58"/>
+    </symbol>
+    <!-- MARK 03: gold region triangle containing the black peak -->
+    <symbol id="mark03" viewBox="0 0 60 60">
+      <polygon fill="var(--gold,#b8921f)" points="30,3 58,58 2,58"/>
+      <polygon fill="currentColor" points="30,14.5 46.5,47 13.5,47"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="grid">
+  <div class="col">
+    <h2>Mark 02 · “The Seam”</h2>
+    <p class="note">gold = the Grade A boundary LINE through the mountain</p>
+    <div class="row">
+      <div class="cell"><svg width="180" height="180" viewBox="0 0 60 60"><use href="#mark02"/></svg><small>HERO · 180</small></div>
+      <div class="cell"><svg width="64" height="64" viewBox="0 0 60 60"><use href="#mark02"/></svg><small>64</small></div>
+      <div class="cell"><svg width="28" height="28" viewBox="0 0 60 60"><use href="#mark02"/></svg><small>NAV · 28</small></div>
+      <div class="cell"><svg width="16" height="16" viewBox="0 0 60 60"><use href="#mark02"/></svg><small>FAVICON · 16</small></div>
+    </div>
+    <div class="swatch">
+      <div class="on-paper"><svg width="56" height="56" viewBox="0 0 60 60" style="color:#16130d"><use href="#mark02"/></svg></div>
+      <div class="on-black"><svg width="56" height="56" viewBox="0 0 60 60" style="color:#f2efe6"><use href="#mark02"/></svg></div>
+      <div class="on-gold"><svg width="56" height="56" viewBox="0 0 60 60" style="color:#16130d"><use href="#mark02"/></svg></div>
+    </div>
+    <p class="caption">paper · ink-reversed on black · on gold</p>
+  </div>
+
+  <div class="col">
+    <h2>Mark 03 · “The Field”</h2>
+    <p class="note">gold = the Grade A REGION holding the mountain</p>
+    <div class="row">
+      <div class="cell"><svg width="180" height="180" viewBox="0 0 60 60"><use href="#mark03"/></svg><small>HERO · 180</small></div>
+      <div class="cell"><svg width="64" height="64" viewBox="0 0 60 60"><use href="#mark03"/></svg><small>64</small></div>
+      <div class="cell"><svg width="28" height="28" viewBox="0 0 60 60"><use href="#mark03"/></svg><small>NAV · 28</small></div>
+      <div class="cell"><svg width="16" height="16" viewBox="0 0 60 60"><use href="#mark03"/></svg><small>FAVICON · 16</small></div>
+    </div>
+    <div class="swatch">
+      <div class="on-paper"><svg width="56" height="56" viewBox="0 0 60 60" style="color:#16130d"><use href="#mark03"/></svg></div>
+      <div class="on-black"><svg width="56" height="56" viewBox="0 0 60 60" style="color:#16130d"><use href="#mark03"/></svg></div>
+      <div class="on-gold"><svg width="56" height="56" viewBox="0 0 60 60" style="color:#16130d"><use href="#mark03"/></svg></div>
+    </div>
+    <p class="caption">paper · gold holds on black · on gold (inner only)</p>
+  </div>
+</div>
+
+<p class="caption" style="margin-top:16px">LAST UPDATED JULY 2, 2026 · AWAYS MARK DEVELOPMENT SHEET</p>
+
+</body>
+</html>

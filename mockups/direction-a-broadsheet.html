@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AWAYS — Grade A mapping for the places that depend on it.</title>
+<link href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" rel="stylesheet"/>
+<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@4.4.1/dist/pmtiles.js"></script>
+<script src="../public/juicytrails-style.js"></script>
+<style>
+  /* ---------------- THE BROADSHEET ---------------- */
+  :root{
+    --ink:   #141310;
+    --paper: #f8f6ef;
+    --gold:  #b8901c;
+    --link:  #0000EE;
+    --visited:#551A8B;
+    --hair:  #141310;
+  }
+  html{ background:var(--paper); }
+  body{
+    margin:0;
+    color:var(--ink);
+    background:var(--paper);
+    font-family:"Times New Roman", Times, serif;
+    font-size:16px;
+    line-height:1.42;
+    -webkit-font-smoothing:auto;
+  }
+  ::selection{ background:var(--gold); color:#000; }
+
+  a         { color:var(--link); text-decoration:underline; text-underline-offset:2px; }
+  a:visited { color:var(--visited); }
+  a:hover   { text-decoration-thickness:2px; }
+
+  .sheet{
+    max-width:1060px;
+    margin:0 auto;
+    padding:14px 28px 56px;
+  }
+
+  /* --- tiny caps utility, the workhorse label style --- */
+  .caps{
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    font-family:"Times New Roman", Times, serif;
+  }
+
+  /* ---------------- MASTHEAD ---------------- */
+  .ears{
+    display:flex; justify-content:space-between; align-items:baseline;
+    border-bottom:1px solid var(--hair);
+    padding:2px 0 5px;
+  }
+  .nameplate{
+    text-align:center;
+    padding:22px 0 14px;
+  }
+  .nameplate .mark{
+    display:inline-block;
+    width:46px; height:46px;
+    vertical-align:baseline;
+    margin-right:14px;
+    position:relative; top:4px;
+  }
+  .nameplate .word{
+    font-size:76px;
+    font-weight:700;
+    letter-spacing:.06em;
+    line-height:1;
+    vertical-align:baseline;
+  }
+  .rule-double{
+    border:0;
+    border-top:1px solid var(--hair);
+    border-bottom:3px solid var(--hair);
+    height:2px;
+    margin:0;
+  }
+  .dateline{
+    text-align:center;
+    padding:6px 0;
+    border-bottom:1px solid var(--hair);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+  }
+  .dateline b{ font-weight:700; }
+
+  /* ---------------- HEADLINE ---------------- */
+  h1{
+    margin:30px 0 6px;
+    text-align:center;
+    font-size:56px;
+    line-height:1.03;
+    font-weight:700;
+    letter-spacing:.005em;
+    text-transform:uppercase;
+    text-wrap:balance;
+  }
+
+  /* ---------------- LEAD: text column + the map as lead photo ---------------- */
+  .lead{
+    margin-top:26px;
+    display:grid;
+    grid-template-columns:19.5em 1fr;
+    gap:0;
+  }
+  .lede-col{
+    padding-right:22px;
+    border-right:1px solid var(--hair);
+    font-size:16.5px;
+    line-height:1.5;
+  }
+  .lede-col p{ margin:0 0 14px; text-align:justify; hyphens:auto; }
+  .lede-col .lead-in{
+    font-variant-caps:all-small-caps;
+    letter-spacing:.06em;
+  }
+  .dropcap{
+    float:left;
+    font-size:64px;
+    line-height:.82;
+    padding:6px 8px 0 0;
+    font-weight:700;
+    color:var(--gold);
+  }
+  .index{
+    margin-top:18px;
+    border-top:1px solid var(--hair);
+    padding-top:10px;
+  }
+  .index .caps{ display:block; margin-bottom:8px; font-weight:700; }
+  .index ul{ margin:0; padding:0; list-style:none; }
+  .index li{ margin:0 0 7px; font-size:15px; }
+  .index li::before{ content:"▸ "; color:var(--ink); }
+
+  .figure{ padding-left:22px; min-width:0; }
+  #map{
+    width:100%;
+    height:520px;
+    border:1px solid var(--hair);
+    background:#e8e6de;
+    position:relative;
+  }
+  #map .maplibregl-canvas{ outline:none; }
+
+  .draw-btn{
+    position:absolute; z-index:5; top:10px; left:10px;
+    background:var(--paper);
+    border:1px solid var(--hair);
+    box-shadow:2px 2px 0 var(--hair);
+    font-family:"Times New Roman", Times, serif;
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    padding:5px 10px 4px;
+    cursor:pointer;
+    color:var(--ink);
+  }
+  .draw-btn:active{ box-shadow:none; transform:translate(2px,2px); }
+  .draw-notice{
+    position:absolute; z-index:5; top:10px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:var(--paper);
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    padding:5px 12px 4px;
+    display:none;
+    white-space:nowrap;
+  }
+  .rubber-box{
+    position:absolute; z-index:4;
+    border:2px dashed var(--gold);
+    pointer-events:none;
+  }
+  figcaption{
+    font-style:italic;
+    font-size:14px;
+    line-height:1.4;
+    margin-top:7px;
+    color:var(--ink);
+  }
+  figcaption .slug{
+    font-style:normal; font-weight:700;
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  }
+
+  /* ---------------- SECTION HEADS ---------------- */
+  .sect-head{
+    display:flex; align-items:center; gap:16px;
+    margin:44px 0 18px;
+    text-align:center;
+  }
+  .sect-head::before, .sect-head::after{
+    content:""; flex:1; border-top:1px solid var(--hair);
+  }
+  .sect-head h2{
+    margin:0;
+    font-size:30px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.02em;
+    white-space:nowrap;
+  }
+
+  .two-col{
+    column-count:2;
+    column-gap:44px;
+    column-rule:1px solid var(--hair);
+    font-size:16.5px;
+    line-height:1.5;
+  }
+  .two-col p{ margin:0 0 14px; text-align:justify; hyphens:auto; }
+  .two-col p:first-child::first-line{ font-variant-caps:all-small-caps; letter-spacing:.05em; }
+
+  /* ---------------- THE COUPON (form) ---------------- */
+  .coupon{
+    margin:46px auto 0;
+    max-width:620px;
+    border:1px dashed var(--hair);
+    padding:26px 34px 30px;
+    background:var(--paper);
+  }
+  .coupon .sect-head{ margin:0 0 14px; }
+  .coupon .sect-head h2{ font-size:24px; }
+  .coupon > p{
+    margin:0 0 20px;
+    font-size:15.5px;
+    text-align:justify;
+    hyphens:auto;
+  }
+  .frm-row{ margin:0 0 16px; }
+  .frm-row label{
+    display:block;
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    font-weight:700;
+    margin-bottom:4px;
+  }
+  .frm-row label .aside{
+    font-weight:400; text-transform:none; letter-spacing:0;
+    font-size:12px; font-style:italic;
+  }
+  input[type="text"], input[type="email"], textarea{
+    width:100%;
+    box-sizing:border-box;
+    border:1px solid var(--hair);
+    border-radius:0;
+    background:#fff;
+    color:var(--ink);
+    font-family:"Courier New", Courier, monospace;
+    font-size:13.5px;
+    padding:7px 9px;
+  }
+  input:focus, textarea:focus{
+    outline:2px solid var(--ink);
+    outline-offset:-1px;
+  }
+  input[readonly]{ background:#f1efe6; cursor:default; }
+  textarea{ resize:vertical; min-height:88px; }
+  .submit-row{ margin-top:20px; text-align:center; }
+  button.submit{
+    font-family:"Times New Roman", Times, serif;
+    font-size:15px;
+    letter-spacing:.05em;
+    background:var(--ink);
+    color:var(--paper);
+    border:1px solid var(--hair);
+    box-shadow:3px 3px 0 var(--hair);
+    padding:9px 26px 8px;
+    cursor:pointer;
+  }
+  button.submit:active{ box-shadow:none; transform:translate(2px,2px); }
+  .mock-note{
+    display:none;
+    margin-top:12px;
+    font-style:italic;
+    font-size:13.5px;
+    text-align:center;
+  }
+
+  /* ---------------- COLOPHON / FOOTER ---------------- */
+  .thirty{
+    text-align:center;
+    margin:52px 0 0;
+    font-size:14px;
+    letter-spacing:.25em;
+  }
+  .colophon-mark{
+    display:block;
+    width:26px; height:26px;
+    margin:14px auto 0;
+  }
+  footer{
+    margin-top:14px;
+    border-top:3px solid var(--hair);
+    padding-top:2px;
+  }
+  footer .inner{
+    border-top:1px solid var(--hair);
+    margin-top:1px;
+    padding:10px 0 0;
+    text-align:center;
+    font-size:12.5px;
+  }
+
+  /* ---------------- laptop / narrow ---------------- */
+  @media (max-width: 940px){
+    .nameplate .word{ font-size:56px; }
+    h1{ font-size:40px; }
+    .lead{ grid-template-columns:1fr; }
+    .lede-col{ border-right:0; padding-right:0; }
+    .figure{ padding-left:0; margin-top:22px; }
+    .two-col{ column-count:1; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <!-- EARS -->
+  <div class="ears">
+    <span class="caps">Professional OpenStreetMap services</span>
+    <span class="caps">Free trail map: <a href="https://juicytrails.com">juicytrails.com</a></span>
+  </div>
+
+  <!-- NAMEPLATE -->
+  <div class="nameplate">
+    <!-- the AWAYS striped triangle, inked in gold -->
+    <svg class="mark" viewBox="0 0 600 460" aria-hidden="true">
+      <defs>
+        <clipPath id="tri"><polygon points="300,21 90,441 510,441"/></clipPath>
+      </defs>
+      <g clip-path="url(#tri)">
+        <rect x="0" y="0" width="600" height="460" fill="#b8901c"/>
+        <g fill="#f8f6ef">
+          <rect y="108" width="600" height="3"/>
+          <rect y="140" width="600" height="5"/>
+          <rect y="176" width="600" height="7"/>
+          <rect y="216" width="600" height="9"/>
+          <rect y="261" width="600" height="11"/>
+          <rect y="310" width="600" height="13"/>
+          <rect y="364" width="600" height="15"/>
+          <rect y="423" width="600" height="18"/>
+        </g>
+      </g>
+    </svg><span class="word">AWAYS</span>
+  </div>
+
+  <hr class="rule-double"/>
+  <div class="dateline">
+    <span id="volno">Vol. I, No. —</span> &nbsp;·&nbsp; <b>Mapped daily</b> — <span id="today">…</span> &nbsp;·&nbsp; One page
+  </div>
+
+  <!-- HEADLINE -->
+  <h1>Grade&nbsp;A mapping for the places that depend&nbsp;on&nbsp;it.</h1>
+
+  <!-- LEAD -->
+  <div class="lead">
+    <div class="lede-col">
+      <p><span class="dropcap">A</span><span class="lead-in">WAYS makes public outdoor data accurate</span> — every trail mapped, every connector included, every closure reflected, every name correct. The work lives in OpenStreetMap, where nearly every outdoor app already looks, and it stays open. What your organization pays for is accuracy, kept current.</p>
+      <div class="index">
+        <span class="caps">In this edition</span>
+        <ul>
+          <li><a href="#problem">We won't assume we know your problem.</a></li>
+          <li><a href="#region">Show us your region</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <figure class="figure" style="margin:0;">
+      <div id="map">
+        <button class="draw-btn" id="drawBtn" type="button">Draw your region</button>
+        <div class="draw-notice" id="drawNotice">Drag to draw a box — Esc to cancel</div>
+      </div>
+      <figcaption>
+        <span class="slug">Live —</span> the Gunnison Valley, Colorado, drawn this minute from OpenStreetMap.
+        Every colored line is a mapped trail. Drag to roam; scroll to zoom. The map is the product.
+      </figcaption>
+    </figure>
+  </div>
+
+  <!-- CENTERPIECE -->
+  <div class="sect-head" id="problem"><h2>We won't assume we know your problem.</h2></div>
+  <div class="two-col">
+    <p>Every region is different. Maybe you have good trail data and no way to get it in front of the public. Maybe wayfinding on the ground doesn't match what visitors see in their apps. Maybe the problem is something else entirely — and whether mapping is even the fix isn't obvious yet.</p>
+    <p>That's what the first call is for. Fifteen minutes: you describe your situation, we listen. If we can help, we'll tell you how. If we can't, we'll say so plainly — and either way you'll leave with an honest read on where your region stands.</p>
+  </div>
+
+  <!-- THE COUPON -->
+  <div class="coupon" id="region">
+    <div class="sect-head"><h2>Show us your region</h2></div>
+    <p>Draw a rough box around the area on your mind. Tell us about your organization and the situation in your own words — however it looks from where you sit. We'll get back to you to schedule the call.</p>
+    <form id="scopeForm">
+      <div class="frm-row">
+        <label for="bbox">Region <span class="aside">— bounding box; <a href="#" id="drawLink">draw it on the map above</a></span></label>
+        <input type="text" id="bbox" name="bbox" readonly placeholder="lng, lat  ×  lng, lat"/>
+      </div>
+      <div class="frm-row">
+        <label for="email">Your email</label>
+        <input type="email" id="email" name="email"/>
+      </div>
+      <div class="frm-row">
+        <label for="note">Note</label>
+        <textarea id="note" name="note" rows="4"></textarea>
+      </div>
+      <div class="submit-row">
+        <button class="submit" type="submit">Request scoping call</button>
+        <div class="mock-note" id="mockNote">This is a design mock — nothing was sent.</div>
+      </div>
+    </form>
+  </div>
+
+  <!-- COLOPHON -->
+  <div class="thirty">— 30 —</div>
+  <svg class="colophon-mark" viewBox="0 0 600 460" aria-hidden="true">
+    <defs><clipPath id="tri2"><polygon points="300,21 90,441 510,441"/></clipPath></defs>
+    <g clip-path="url(#tri2)">
+      <rect width="600" height="460" fill="#141310"/>
+      <g fill="#f8f6ef">
+        <rect y="108" width="600" height="3"/><rect y="140" width="600" height="5"/>
+        <rect y="176" width="600" height="7"/><rect y="216" width="600" height="9"/>
+        <rect y="261" width="600" height="11"/><rect y="310" width="600" height="13"/>
+        <rect y="364" width="600" height="15"/><rect y="423" width="600" height="18"/>
+      </g>
+    </g>
+  </svg>
+
+  <footer>
+    <div class="inner">
+      © AWAYS &nbsp;·&nbsp; Free trail map: <a href="https://juicytrails.com">juicytrails.com</a>
+      &nbsp;·&nbsp; Map © <a href="https://openfreemap.org">OpenFreeMap</a>, <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>
+      <br/><span class="caps">Last updated <span id="stamp">…</span></span>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  /* ---------- dateline ---------- */
+  (function(){
+    var now = new Date();
+    document.getElementById("today").textContent =
+      now.toLocaleDateString("en-US",{weekday:"long", year:"numeric", month:"long", day:"numeric"});
+    var start = new Date(now.getFullYear(),0,0);
+    var doy = Math.floor((now - start)/86400000);
+    document.getElementById("volno").textContent = "Vol. I, No. " + doy;
+    document.getElementById("stamp").textContent =
+      now.toLocaleDateString("en-US",{year:"numeric", month:"long", day:"numeric"});
+  })();
+
+  /* ---------- the map (the art) ---------- */
+  maplibregl.addProtocol("pmtiles", new pmtiles.Protocol().tile);
+  const map = new maplibregl.Map({
+    container: "map",
+    style: "../public/liberty-style.json",
+    center: [-106.95, 38.75],
+    zoom: 10,
+    attributionControl: false
+  });
+  map.on("load", () => {
+    applyJuicyTrailsColorOverrides(map);
+    addJuicyTrailsHillshade(map);
+    map.addSource("jt-trails", { type: "vector", url: "pmtiles://https://pub-a1acba1578d9437aaa71b986c790e914.r2.dev/us_trails-v2-hd.pmtiles" });
+    addJuicyTrailsLayers(map, "jt-trails");
+    addJuicyTrailsPeaks(map);
+    addJuicyTrailsSkiLifts(map);
+    liftJuicyTrailsLabels(map);
+  });
+
+  /* ---------- draw-your-region (fills the coupon) ---------- */
+  (function(){
+    var container = map.getContainer();
+    var canvas    = map.getCanvasContainer();
+    var notice    = document.getElementById("drawNotice");
+    var bboxInput = document.getElementById("bbox");
+    var drawing = false, startPx = null, rubber = null;
+
+    function enableDraw(e){
+      if (e) e.preventDefault();
+      drawing = true;
+      map.dragPan.disable();
+      canvas.style.cursor = "crosshair";
+      notice.style.display = "block";
+      document.getElementById("map").scrollIntoView({block:"center"});
+    }
+    function cleanup(){
+      drawing = false; startPx = null;
+      map.dragPan.enable();
+      canvas.style.cursor = "";
+      notice.style.display = "none";
+      if (rubber){ rubber.remove(); rubber = null; }
+    }
+    function pxOf(e){
+      var r = container.getBoundingClientRect();
+      return [e.clientX - r.left, e.clientY - r.top];
+    }
+
+    document.getElementById("drawBtn").addEventListener("click", enableDraw);
+    document.getElementById("drawLink").addEventListener("click", enableDraw);
+    document.addEventListener("keydown", function(e){ if (e.key === "Escape" && drawing) cleanup(); });
+
+    container.addEventListener("mousedown", function(e){
+      if (!drawing) return;
+      e.preventDefault();
+      startPx = pxOf(e);
+      rubber = document.createElement("div");
+      rubber.className = "rubber-box";
+      container.appendChild(rubber);
+    });
+    container.addEventListener("mousemove", function(e){
+      if (!drawing || !startPx || !rubber) return;
+      var p = pxOf(e);
+      rubber.style.left   = Math.min(startPx[0], p[0]) + "px";
+      rubber.style.top    = Math.min(startPx[1], p[1]) + "px";
+      rubber.style.width  = Math.abs(p[0] - startPx[0]) + "px";
+      rubber.style.height = Math.abs(p[1] - startPx[1]) + "px";
+    });
+    container.addEventListener("mouseup", function(e){
+      if (!drawing || !startPx) return;
+      var p = pxOf(e);
+      var a = map.unproject(startPx), b = map.unproject(p);
+      var w = Math.min(a.lng,b.lng).toFixed(4), e_ = Math.max(a.lng,b.lng).toFixed(4),
+          s = Math.min(a.lat,b.lat).toFixed(4), n = Math.max(a.lat,b.lat).toFixed(4);
+      bboxInput.value = w + ", " + s + "  ×  " + e_ + ", " + n;
+
+      // ink the chosen region onto the map, in gold
+      var ring = [[+w,+s],[+e_,+s],[+e_,+n],[+w,+n],[+w,+s]];
+      var gj = { type:"Feature", geometry:{ type:"Polygon", coordinates:[ring] } };
+      if (map.getSource("your-region")) {
+        map.getSource("your-region").setData(gj);
+      } else {
+        map.addSource("your-region", { type:"geojson", data: gj });
+        map.addLayer({ id:"your-region-line", type:"line", source:"your-region",
+          paint:{ "line-color":"#b8901c", "line-width":2.5, "line-dasharray":[2,1.5] } });
+      }
+      cleanup();
+      document.getElementById("region").scrollIntoView({block:"center"});
+    });
+  })();
+
+  /* ---------- the coupon is a visual mock ---------- */
+  document.getElementById("scopeForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    document.getElementById("mockNote").style.display = "block";
+  });
+</script>
+</body>
+</html>

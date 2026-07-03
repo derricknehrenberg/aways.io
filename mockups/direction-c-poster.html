@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AWAYS — Grade A mapping for the places that depend on it</title>
+<link href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" rel="stylesheet"/>
+<script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@4.4.1/dist/pmtiles.js"></script>
+<script src="../public/juicytrails-style.js"></script>
+<style>
+  /* ====== THE WALL ====== */
+  :root{
+    --cream:#f4efe4;
+    --cream-mat:#faf6ea;
+    --ink:#17130c;
+    --gold:#c9a227;
+    --gold-deep:#a3851c;
+    --blue:#0000EE;
+    --purple:#551A8B;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background-color:#141109;
+    background-image:
+      radial-gradient(circle, rgba(201,162,39,.55) 2.4px, transparent 3px),
+      radial-gradient(circle, rgba(201,162,39,.20) 1.7px, transparent 2.2px);
+    background-size:34px 34px, 34px 34px;
+    background-position:0 0, 17px 17px;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    color:var(--ink);
+    line-height:1.5;
+  }
+
+  /* ====== THE SHEET ====== */
+  .sheet{
+    max-width:1020px;
+    margin:40px auto 56px;
+    background:var(--cream);
+    box-shadow: 0 0 0 1px var(--gold), 0 26px 70px rgba(0,0,0,.6);
+    padding:26px 26px 30px;
+  }
+  .rule-heavy{height:6px;background:var(--ink)}
+  .rule-thin{height:1px;background:var(--ink);margin-top:3px}
+  .sheet-inner{padding:0 46px}
+  @media(max-width:860px){ .sheet-inner{padding:0 20px} .sheet{margin:14px 10px 30px;padding:16px 14px 20px} }
+
+  /* ====== MASTHEAD ====== */
+  .masthead{text-align:center;padding:46px 0 8px}
+  .mast-tri{width:118px;height:109px;display:block;margin:0 auto 10px;transform:rotate(-1.4deg)}
+  .wordmark{
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight:700;
+    font-size:clamp(58px, 9.4vw, 104px);
+    letter-spacing:.17em;
+    margin-left:.17em; /* optically recenters letterspaced caps */
+    line-height:1;
+    color:var(--ink);
+  }
+  .eyebrow{
+    display:flex;align-items:center;justify-content:center;gap:16px;
+    margin:22px 0 0;
+  }
+  .eyebrow .line{flex:1;max-width:190px;height:1px;background:var(--ink)}
+  .eyebrow .txt{
+    font-family:'Courier New', Courier, monospace;font-weight:700;
+    font-size:13px;letter-spacing:.34em;text-transform:uppercase;
+    white-space:nowrap;
+  }
+  .eyebrow svg{width:11px;height:10px;flex:none}
+  @media(max-width:640px){ .eyebrow .txt{letter-spacing:.14em;font-size:11px} }
+
+  .mast-rules{margin:30px 0 0}
+
+  /* ====== HEADLINE ====== */
+  .bill{text-align:center;padding:34px 0 6px}
+  .bill h1{
+    font-style:italic;font-weight:400;
+    font-size:clamp(28px, 4.2vw, 42px);
+    line-height:1.18;
+    max-width:19em;margin:0 auto;
+  }
+  .bill h1 .grade-a{
+    font-style:normal;font-weight:700;
+    white-space:nowrap;
+  }
+  .hero-body{
+    max-width:60ch;margin:24px auto 0;
+    font-size:17px;line-height:1.62;
+    text-align:center;
+  }
+  .hero-body a{color:var(--blue)}
+  .hero-body a:visited{color:var(--purple)}
+
+  /* ====== THE FRAMED PRINT ====== */
+  .gallery{padding:40px 0 8px}
+  .frame{
+    position:relative;
+    background:var(--ink);
+    padding:16px;
+    outline:1px solid var(--gold);
+    outline-offset:-8px;
+  }
+  .mat{
+    background:var(--cream-mat);
+    padding:36px 36px 18px;
+    box-shadow: inset 0 0 0 1px rgba(23,19,12,.25);
+  }
+  .print{
+    border:1px solid var(--ink);
+    height:560px;
+    position:relative;
+  }
+  #map{position:absolute;inset:0}
+  #map.drawing .maplibregl-canvas{cursor:crosshair !important}
+  .corner{
+    position:absolute;width:15px;height:15px;background:var(--gold);
+    border:1px solid #5f4c0e;
+    transform:rotate(45deg);
+    z-index:3;
+  }
+  .corner.tl{top:-8px;left:-8px}.corner.tr{top:-8px;right:-8px}
+  .corner.bl{bottom:-8px;left:-8px}.corner.br{bottom:-8px;right:-8px}
+  .plaque-row{text-align:center;margin-top:16px}
+  .plaque{
+    display:inline-block;
+    background:var(--gold);
+    color:#2b2104;
+    border:1px solid #7a6112;
+    box-shadow: inset 0 0 0 2px rgba(250,246,234,.5);
+    font-family:'Courier New', Courier, monospace;font-weight:700;
+    font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+    padding:6px 18px 5px;
+  }
+  @media(max-width:760px){ .print{height:420px} .mat{padding:12px 12px 10px} .plaque{letter-spacing:.1em} }
+  .under-plate{
+    text-align:center;
+    font-family:'Courier New', Courier, monospace;
+    font-size:12px;letter-spacing:.06em;
+    color:#5c5340;
+    margin-top:14px;
+  }
+
+  /* ====== DIVIDER ====== */
+  .divider{display:flex;align-items:center;gap:18px;margin:52px 0 46px}
+  .divider .dots{
+    flex:1;height:14px;
+    background-image:radial-gradient(circle, var(--ink) 2px, transparent 2.5px);
+    background-size:14px 14px;
+    background-position:center;
+  }
+  .divider svg{width:26px;height:24px;flex:none;transform:rotate(1.6deg)}
+
+  /* ====== THE PLAIN HALF ====== */
+  .working{max-width:700px;margin:0 auto}
+  .working h2{
+    font-size:clamp(26px, 3.4vw, 33px);
+    font-weight:700;line-height:1.15;
+    letter-spacing:.005em;
+  }
+  .swash{display:block;width:min(340px,80%);height:12px;margin:10px 0 22px}
+  .working p{font-size:17px;line-height:1.6;margin:0 0 16px}
+  ul.maybes{list-style:none;margin:18px 0 20px;padding:0}
+  ul.maybes li{
+    position:relative;
+    padding-left:30px;
+    font-size:17px;line-height:1.55;
+    margin-bottom:12px;
+  }
+  ul.maybes li svg{
+    position:absolute;left:2px;top:5px;width:15px;height:14px;
+  }
+  ul.maybes li:nth-child(1) svg{transform:rotate(-3deg)}
+  ul.maybes li:nth-child(2) svg{transform:rotate(2deg)}
+  ul.maybes li:nth-child(3) svg{transform:rotate(-1.5deg)}
+  .plainly{margin-top:20px}
+
+  /* ====== FORM ====== */
+  .region-sec{margin-top:56px}
+  form{margin-top:26px}
+  .field{margin-bottom:20px}
+  .field label{
+    display:block;
+    font-family:'Courier New', Courier, monospace;font-weight:700;
+    font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .field label .hint{
+    font-weight:400;text-transform:none;letter-spacing:.04em;
+    color:#5c5340;
+  }
+  .field input, .field textarea{
+    width:100%;
+    background:var(--cream-mat);
+    border:1px solid var(--ink);
+    border-radius:0;
+    font-family:'Courier New', Courier, monospace;
+    font-size:15px;
+    padding:10px 12px;
+    color:var(--ink);
+  }
+  .field input:focus, .field textarea:focus{
+    outline:2px solid var(--gold);outline-offset:-1px;
+  }
+  #region-input{cursor:crosshair}
+  #region-input.armed{outline:2px solid var(--gold);outline-offset:-1px}
+  .field textarea{resize:vertical;min-height:120px;line-height:1.5}
+  button.cta{
+    display:inline-block;
+    background:var(--ink);color:var(--cream);
+    border:1px solid var(--ink);border-radius:0;
+    font-family:'Courier New', Courier, monospace;font-weight:700;
+    font-size:14px;letter-spacing:.22em;text-transform:uppercase;
+    padding:14px 30px 13px;
+    cursor:pointer;
+  }
+  button.cta:hover{background:var(--gold);color:var(--ink);border-color:var(--ink)}
+  button.cta:active{transform:translate(1px,1px)}
+  .draw-note{
+    font-family:'Courier New', Courier, monospace;font-size:12.5px;
+    color:var(--gold-deep);margin-top:6px;display:none;letter-spacing:.04em;
+  }
+  .draw-note.on{display:block}
+  .mock-note{
+    font-family:'Courier New', Courier, monospace;font-size:12.5px;
+    color:var(--gold-deep);margin-top:12px;display:none;letter-spacing:.04em;
+  }
+  .mock-note.on{display:block}
+
+  /* ====== FOOTER ====== */
+  .colophon{margin-top:64px}
+  .colophon hr{border:none;border-top:1px solid #8f8672;margin:0 0 18px}
+  .foot-row{
+    display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;
+    padding-bottom:8px;
+  }
+  .foot-legal{
+    font-family:'Courier New', Courier, monospace;
+    font-size:12.5px;line-height:1.8;letter-spacing:.03em;
+  }
+  .foot-legal a{color:var(--blue)}
+  .foot-legal a:visited{color:var(--purple)}
+  .stamp{
+    font-family:'Courier New', Courier, monospace;font-weight:700;
+    font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--gold-deep);
+    border:2px solid var(--gold-deep);
+    padding:5px 12px 4px;
+    transform:rotate(-2.2deg);
+    white-space:nowrap;
+  }
+  .bottom-rules{margin-top:22px}
+  .rule-thin.up{margin:0 0 3px}
+</style>
+</head>
+<body>
+
+<!-- Hand-inked striped triangles, drawn once, stamped everywhere -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- the triangle silhouette, edges slightly bowed like a brush pull -->
+    <path id="tri-path" d="M50.6 3.4
+      C47.7 8.8 41.2 21.1 34.6 33.9
+      C27.4 47.8 18.7 64.4 13.2 75.1
+      C10.7 79.9 8.2 84.6 7 86.8
+      L93.8 86.3
+      C91.6 82 88 75.2 83.4 66.5
+      C76.4 53.3 67.4 35.8 60.4 22.4
+      C56.2 14.3 52.7 7.4 50.6 3.4 Z"/>
+    <clipPath id="tri-clip"><use href="#tri-path"/></clipPath>
+
+    <!-- big masthead mark: ink triangle, cream stripes, ONE gold stripe -->
+    <g id="tri-big">
+      <g clip-path="url(#tri-clip)">
+        <rect x="0" y="0" width="100" height="92" fill="#17130c"/>
+        <path d="M0 22.3 L100 21.8 L100 23.7 L0 24.2 Z" fill="#f4efe4"/>
+        <path d="M0 34.1 L100 33.7 L100 36.7 L0 37.0 Z" fill="#f4efe4"/>
+        <path d="M0 47.2 L100 46.7 L100 50.9 L0 51.3 Z" fill="#f4efe4"/>
+        <path d="M0 61.4 L100 61.0 L100 66.8 L0 67.1 Z" fill="#c9a227"/>
+        <path d="M0 77.0 L100 76.5 L100 84.1 L0 84.5 Z" fill="#f4efe4"/>
+      </g>
+      <use href="#tri-path" fill="none" stroke="#17130c" stroke-width="2.6" stroke-linejoin="round"/>
+      <use href="#tri-path" fill="none" stroke="#17130c" stroke-width="1" opacity=".45"
+           transform="translate(.9,.7)"/>
+    </g>
+
+    <!-- small stamp: same hand, solid ink, single cream notch -->
+    <g id="tri-small">
+      <g clip-path="url(#tri-clip)">
+        <rect x="0" y="0" width="100" height="92" fill="#17130c"/>
+        <path d="M0 55.5 L100 54.6 L100 63.8 L0 64.6 Z" fill="#f4efe4"/>
+      </g>
+    </g>
+
+    <!-- gold underline swash for the centerpiece heading -->
+    <g id="swash-stroke">
+      <path d="M3 8 C 58 2.5, 150 10.5, 231 5.5 C 265 3.5, 300 6.5, 334 4.5"
+            fill="none" stroke="#c9a227" stroke-width="5.5" stroke-linecap="round"/>
+      <path d="M10 10.5 C 90 5.5, 210 11.5, 330 7"
+            fill="none" stroke="#c9a227" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+    </g>
+  </defs>
+</svg>
+
+<div class="sheet">
+  <div class="rule-heavy"></div>
+  <div class="rule-thin"></div>
+
+  <div class="sheet-inner">
+
+    <!-- ============ MASTHEAD ============ -->
+    <header class="masthead">
+      <svg class="mast-tri" viewBox="0 0 100 92" role="img" aria-label="AWAYS striped triangle mark">
+        <use href="#tri-big"/>
+      </svg>
+      <div class="wordmark">AWAYS</div>
+      <div class="eyebrow">
+        <span class="line"></span>
+        <svg viewBox="0 0 100 92" aria-hidden="true"><use href="#tri-small"/></svg>
+        <span class="txt">Professional OpenStreetMap services</span>
+        <svg viewBox="0 0 100 92" aria-hidden="true" style="transform:rotate(2.4deg)"><use href="#tri-small"/></svg>
+        <span class="line"></span>
+      </div>
+      <div class="mast-rules">
+        <div class="rule-thin" style="margin:0 0 3px"></div>
+        <div class="rule-heavy" style="height:4px"></div>
+      </div>
+    </header>
+
+    <!-- ============ THE BILL ============ -->
+    <section class="bill">
+      <h1><span class="grade-a">Grade&nbsp;A</span> mapping for the places that depend on it.</h1>
+      <p class="hero-body">AWAYS makes public outdoor data accurate — every trail mapped, every
+      connector included, every closure reflected, every name correct. The work lives in
+      <a href="https://www.openstreetmap.org">OpenStreetMap</a>, where nearly every outdoor app
+      already looks, and it stays open. What your organization pays for is accuracy, kept current.</p>
+    </section>
+
+    <!-- ============ THE PRINT ============ -->
+    <section class="gallery">
+      <div class="frame">
+        <span class="corner tl"></span><span class="corner tr"></span>
+        <span class="corner bl"></span><span class="corner br"></span>
+        <div class="mat">
+          <div class="print"><div id="map"></div></div>
+          <div class="plaque-row">
+            <span class="plaque">Gunnison Valley, Colorado &nbsp;·&nbsp; live from OpenStreetMap</span>
+          </div>
+        </div>
+      </div>
+      <p class="under-plate">drag to wander &nbsp;·&nbsp; scroll to zoom &nbsp;·&nbsp; every line is real</p>
+    </section>
+
+    <!-- ============ DIVIDER ============ -->
+    <div class="divider" role="separator">
+      <span class="dots"></span>
+      <svg viewBox="0 0 100 92" aria-hidden="true"><use href="#tri-small"/></svg>
+      <span class="dots"></span>
+    </div>
+
+    <!-- ============ THE CENTERPIECE ============ -->
+    <section class="working">
+      <h2>We won&rsquo;t assume we know your problem.</h2>
+      <svg class="swash" viewBox="0 0 340 13" preserveAspectRatio="none" aria-hidden="true">
+        <use href="#swash-stroke"/>
+      </svg>
+      <p>Every region is different.</p>
+      <ul class="maybes">
+        <li><svg viewBox="0 0 100 92" aria-hidden="true"><use href="#tri-small"/></svg>
+          Maybe you have good trail data and no way to get it in front of the public.</li>
+        <li><svg viewBox="0 0 100 92" aria-hidden="true"><use href="#tri-small"/></svg>
+          Maybe wayfinding on the ground doesn&rsquo;t match what visitors see in their apps.</li>
+        <li><svg viewBox="0 0 100 92" aria-hidden="true"><use href="#tri-small"/></svg>
+          Maybe the problem is something else entirely — and whether mapping is even the fix
+          isn&rsquo;t obvious yet.</li>
+      </ul>
+      <p class="plainly">That&rsquo;s what the first call is for. Fifteen minutes: you describe your
+      situation, we listen. If we can help, we&rsquo;ll tell you how. If we can&rsquo;t, we&rsquo;ll
+      say so plainly — and either way you&rsquo;ll leave with an honest read on where your region
+      stands.</p>
+    </section>
+
+    <!-- ============ THE FORM ============ -->
+    <section class="working region-sec">
+      <h2>Show us your region</h2>
+      <svg class="swash" viewBox="0 0 340 13" preserveAspectRatio="none" aria-hidden="true"
+           style="transform:scaleX(-1)"><use href="#swash-stroke"/></svg>
+      <p>Draw a rough box around the area on your mind. Tell us about your organization and the
+      situation in your own words — however it looks from where you sit. We&rsquo;ll get back to
+      you to schedule the call.</p>
+
+      <form id="scope-form">
+        <div class="field">
+          <label for="region-input">Region
+            <span class="hint">(bounding box, filled by drawing on the map)</span></label>
+          <input id="region-input" type="text" readonly
+                 placeholder="click here, then click two corners on the map above"/>
+          <div class="draw-note" id="draw-note">crosshairs armed — click two corners on the map</div>
+        </div>
+        <div class="field">
+          <label for="email-input">Your email</label>
+          <input id="email-input" type="email" autocomplete="email"/>
+        </div>
+        <div class="field">
+          <label for="note-input">Note</label>
+          <textarea id="note-input"></textarea>
+        </div>
+        <button class="cta" type="submit">Request scoping call</button>
+        <div class="mock-note" id="mock-note">design mockup — nothing was sent. the live form posts to the AWAYS intake sheet.</div>
+      </form>
+    </section>
+
+    <!-- ============ COLOPHON ============ -->
+    <footer class="colophon">
+      <hr/>
+      <div class="foot-row">
+        <div class="foot-legal">
+          © AWAYS &nbsp;·&nbsp; Free trail map: <a href="https://juicytrails.com">juicytrails.com</a><br/>
+          Map © <a href="https://openfreemap.org">OpenFreeMap</a>,
+          <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors
+        </div>
+        <div class="stamp">Last updated 02 Jul 2026</div>
+      </div>
+      <div class="bottom-rules">
+        <div class="rule-thin up"></div>
+        <div class="rule-heavy"></div>
+      </div>
+    </footer>
+
+  </div><!-- /sheet-inner -->
+</div><!-- /sheet -->
+
+<script>
+maplibregl.addProtocol("pmtiles", new pmtiles.Protocol().tile);
+const map = new maplibregl.Map({
+  container: "map",
+  style: "../public/liberty-style.json",
+  center: [-106.95, 38.75],
+  zoom: 10,
+  attributionControl: false
+});
+map.on("load", () => {
+  applyJuicyTrailsColorOverrides(map);
+  addJuicyTrailsHillshade(map);
+  map.addSource("jt-trails", { type: "vector", url: "pmtiles://https://pub-a1acba1578d9437aaa71b986c790e914.r2.dev/us_trails-v2-hd.pmtiles" });
+  addJuicyTrailsLayers(map, "jt-trails");
+  addJuicyTrailsPeaks(map);
+  addJuicyTrailsSkiLifts(map);
+  liftJuicyTrailsLabels(map);
+
+  // the visitor's mark: a gold box, drawn by hand
+  map.addSource("aways-bbox", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "aways-bbox-fill", type: "fill", source: "aways-bbox",
+    paint: { "fill-color": "#c9a227", "fill-opacity": 0.12 } });
+  map.addLayer({ id: "aways-bbox-line", type: "line", source: "aways-bbox",
+    paint: { "line-color": "#c9a227", "line-width": 2.5, "line-dasharray": [2, 1.5] } });
+});
+
+// --- bounding-box drawing: click the Region field, then click two corners ---
+const regionInput = document.getElementById("region-input");
+const drawNote = document.getElementById("draw-note");
+const mapEl = document.getElementById("map");
+let drawing = false, firstCorner = null;
+
+function bboxOf(a, b) {
+  return [Math.min(a.lng, b.lng), Math.min(a.lat, b.lat),
+          Math.max(a.lng, b.lng), Math.max(a.lat, b.lat)];
+}
+function setBox(a, b) {
+  const [w, s, e, n] = bboxOf(a, b);
+  map.getSource("aways-bbox").setData({ type: "Feature", geometry: { type: "Polygon",
+    coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] } });
+  return [w, s, e, n];
+}
+function armDrawing() {
+  drawing = true; firstCorner = null;
+  mapEl.classList.add("drawing");
+  regionInput.classList.add("armed");
+  drawNote.classList.add("on");
+  document.querySelector(".frame").scrollIntoView({ block: "center" });
+}
+function disarm(abort) {
+  const aborted = abort && firstCorner;
+  drawing = false; firstCorner = null;
+  mapEl.classList.remove("drawing");
+  regionInput.classList.remove("armed");
+  drawNote.classList.remove("on");
+  if (aborted) { // wipe the half-drawn preview box; leave no orphan ink
+    regionInput.value = "";
+    const src = map.getSource("aways-bbox");
+    if (src) src.setData({ type: "FeatureCollection", features: [] });
+  }
+}
+regionInput.addEventListener("click", armDrawing);
+document.addEventListener("keydown", e => { if (e.key === "Escape") disarm(true); });
+
+map.on("click", e => {
+  if (!drawing) return;
+  if (!firstCorner) { firstCorner = e.lngLat; return; }
+  const [w, s, e2, n] = setBox(firstCorner, e.lngLat);
+  regionInput.value = w.toFixed(4) + ", " + s.toFixed(4) + "  —  " + e2.toFixed(4) + ", " + n.toFixed(4);
+  disarm();
+});
+map.on("mousemove", e => {
+  if (drawing && firstCorner) setBox(firstCorner, e.lngLat);
+});
+
+// --- the coupon is a visual mock: say so honestly, send nothing ---
+document.getElementById("scope-form").addEventListener("submit", e => {
+  e.preventDefault();
+  document.getElementById("mock-note").classList.add("on");
+});
+</script>
+
+</body>
+</html>
