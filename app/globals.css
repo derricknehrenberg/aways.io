@@ -196,6 +196,7 @@ button.ghost.armed{ background: var(--ink); color: var(--paper); }
   pointer-events:auto; cursor:pointer;
   font: inherit; font-size: 11.5px; letter-spacing:.06em;
   min-width: 26px;
+  color: var(--ink); /* the global button rule paints paper-on-paper here */
 }
 .chip.attrib i{ font-family: Georgia, "Times New Roman", serif; font-style: italic; font-weight: 700; font-size: 13px; }
 
