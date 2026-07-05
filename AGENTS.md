@@ -107,3 +107,4 @@ The July 2026 site is a functional test of the draw-region + scoping-call flow, 
 
 - Server boot: "multiple lockfiles" — Next is inferring workspace root from `~/package-lock.json`. Fix by setting `turbopack.root` in `next.config.ts`. Doesn't affect rendering.
 - Browser console: missing sprite icons (`gate`, `cycling`) for some JT trail layers. Liberty's sprite doesn't include those symbols. Trail lines still render; only the icon decorations are skipped.
+- Turbopack can serve stale compiled CSS from `.next` — surviving both HMR and a dev-server restart (observed 2026-07-05: an edited rule was missing from the served chunk). If a CSS edit mysteriously doesn't take: `rm -rf .next` and restart the dev server.
