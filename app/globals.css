@@ -46,7 +46,7 @@ a:hover   { background: var(--ink); color: var(--paper) !important; text-decorat
   font-size: 12px; letter-spacing: .08em;
   flex-wrap: wrap;
 }
-.mast .tri { width:20px; height:20px; flex:none; display:block; }
+.mast .tri { width:20px; height:20px; flex:none; display:block; color: var(--ink); }
 .mast b { letter-spacing:.28em; font-size:13px; }
 .mast .sta { opacity:.75; }
 .mast .right { margin-left:auto; display:flex; gap:18px; align-items:baseline; flex-wrap:wrap; }
