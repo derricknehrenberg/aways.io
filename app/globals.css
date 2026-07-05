@@ -200,6 +200,13 @@ button.ghost.armed{ background: var(--ink); color: var(--paper); }
 }
 .chip.attrib i{ font-family: Georgia, "Times New Roman", serif; font-style: italic; font-weight: 700; font-size: 13px; }
 
+.framebox{
+  position:absolute; z-index:4; inset:14%; /* must match FRAME_INSET in RegionRequest.tsx */
+  border: 2px dashed var(--ink);
+  box-shadow: 0 0 0 9999px rgba(22,19,13,.10);
+  pointer-events:none;
+}
+
 .xhair{
   position:absolute; z-index:3; left:50%; top:50%;
   width:38px; height:38px; margin:-19px 0 0 -19px;

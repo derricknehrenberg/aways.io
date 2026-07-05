@@ -43,7 +43,7 @@ exists.
 - `app/icon.svg` — Mark 03 favicon
 - `components/StationClock.tsx` — ticking UTC clock (client)
 - `components/AwaysLogo.tsx` — LEGACY striped mark, no longer rendered (kept for history)
-- `components/RegionRequest.tsx` — the instrument: readout ledger (`READOUT` constant), line key, request form, MapLibre map with drag-to-draw bbox, live center chip, Grade A seal, post-submit screen, Apps Script POST.
+- `components/RegionRequest.tsx` — the instrument: readout ledger (`READOUT` constant), line key, request form, MapLibre map with viewfinder-frame region select (fixed on-screen frame, pan/zoom the map to fit, lock — same model as the JuicyTrails webapp; works on touch; `FRAME_INSET` must match `.framebox` inset in globals.css), live center chip, Grade A seal, post-submit screen, Apps Script POST.
 - `public/juicytrails-style.js` — vendored from `github.com/derricknehrenberg/juicytrails-pm-style` via the JuicyTrails app. Don't edit directly; updates flow from the upstream repo.
 - `public/AWAYS_logo.svg` — original Illustrator export. The `AwaysLogo` component reimplements it inline so the bar fills can be themed.
 - `scripts/aways-intake.gs` — Google Apps Script source for the form-intake web app. Setup steps in its header comment.
@@ -60,7 +60,7 @@ Inside `components/RegionRequest.tsx`, on `map.on('load')`, in this order:
 4. `liftJuicyTrailsLabels(map)` — pushes Liberty labels above trails
 5. App-owned `bbox` source + `bbox-fill` / `bbox-line` layers — drawn on top so the user's selection is always visible
 
-Attribution uses a custom `JtAttributionControl` class — a white pill with an italic "i" toggle that expands to "JuicyTrails © | OpenFreeMap © | MapLibre | Data from OpenStreetMap". Default MapLibre attribution is suppressed via `attributionControl: false` in map options.
+Attribution is a Field Station chip (`.chip.attrib`, bottom-right): collapsed to an italic serif "i", click-expands to "JUICYTRAILS © · OPENFREEMAP © · MAPLIBRE · DATA FROM OPENSTREETMAP" (July 2026; replaced the earlier static bar and the JT webapp's `JtAttributionControl` pill). Default MapLibre attribution is suppressed via `attributionControl: false` in map options.
 
 PMTiles protocol is registered once per page lifecycle via `ensurePmtilesProtocol()` (idempotent guard against StrictMode double-invocation).
 

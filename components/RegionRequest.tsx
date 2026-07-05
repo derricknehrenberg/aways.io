@@ -81,6 +81,25 @@ function bboxToJosmUrl(b: BBox): string {
   return `http://127.0.0.1:8111/load_and_zoom?left=${b.west}&right=${b.east}&top=${b.north}&bottom=${b.south}`;
 }
 
+// Viewfinder model (same as the JuicyTrails webapp): the frame is fixed on
+// screen and the user pans/zooms the map to fit the region inside it. The
+// inset here must match .framebox{ inset:14% } in globals.css.
+const FRAME_INSET = 0.14;
+
+function frameBBox(map: maplibregl.Map): BBox {
+  const el = map.getContainer();
+  const w = el.clientWidth, h = el.clientHeight;
+  const ix = w * FRAME_INSET, iy = h * FRAME_INSET;
+  const sw = map.unproject([ix, h - iy]);
+  const ne = map.unproject([w - ix, iy]);
+  return {
+    west: Math.min(sw.lng, ne.lng),
+    south: Math.min(sw.lat, ne.lat),
+    east: Math.max(sw.lng, ne.lng),
+    north: Math.max(sw.lat, ne.lat),
+  };
+}
+
 function Tri({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 60 60" aria-hidden="true">
@@ -93,9 +112,7 @@ export default function RegionRequest() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const armedRef = useRef(false);
-  const drawingRef = useRef(false);
-  const startRef = useRef<maplibregl.LngLat | null>(null);
-  const lastTouchRef = useRef<maplibregl.LngLat | null>(null);
+  const paintBoxRef = useRef<(b: BBox | null) => void>(() => {});
 
   const [armed, setArmed] = useState(false);
   const [bbox, setBbox] = useState<BBox | null>(null);
@@ -103,14 +120,13 @@ export default function RegionRequest() {
   const [submitted, setSubmitted] = useState(false);
   const [attribOpen, setAttribOpen] = useState(false);
 
-  // Keep refs in sync for the map event closures
+  // Keep refs in sync for the map event closures; on arming, seed the live
+  // readout with the current frame so the REGION field fills immediately
   useEffect(() => {
     armedRef.current = armed;
     const map = mapRef.current;
     if (!map) return;
-    map.getCanvas().style.cursor = armed ? "crosshair" : "";
-    if (armed) map.dragPan.disable();
-    else if (!drawingRef.current) map.dragPan.enable();
+    if (armed) setBbox(frameBBox(map));
   }, [armed]);
 
   // Init map once
@@ -177,77 +193,35 @@ export default function RegionRequest() {
       map.on("move", readout);
       map.on("zoom", readout);
 
-      // Drag-to-draw bounding box
-      const boxGeoJSON = (a: maplibregl.LngLat, b: maplibregl.LngLat) => {
-        const w = Math.min(a.lng, b.lng), e = Math.max(a.lng, b.lng);
-        const s = Math.min(a.lat, b.lat), n = Math.max(a.lat, b.lat);
-        return {
-          box: { west: w, south: s, east: e, north: n } as BBox,
-          gj: {
-            type: "FeatureCollection" as const,
-            features: [{
-              type: "Feature" as const,
-              properties: {},
-              geometry: {
-                type: "Polygon" as const,
-                coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]],
-              },
-            }],
-          },
-        };
-      };
-      const paint = (a: maplibregl.LngLat, b: maplibregl.LngLat) => {
+      // Viewfinder frame: while armed, the map moves under a fixed frame and
+      // the REGION readout tracks the frame's geographic bounds live. Locking
+      // inks the captured box onto the chart.
+      const paintBox = (b: BBox | null) => {
         const src = map.getSource("bbox") as maplibregl.GeoJSONSource | undefined;
-        if (src) src.setData(boxGeoJSON(a, b).gj);
+        if (!src) return;
+        src.setData(
+          b
+            ? {
+                type: "FeatureCollection",
+                features: [{
+                  type: "Feature",
+                  properties: {},
+                  geometry: {
+                    type: "Polygon",
+                    coordinates: [[
+                      [b.west, b.south], [b.east, b.south], [b.east, b.north],
+                      [b.west, b.north], [b.west, b.south],
+                    ]],
+                  },
+                }],
+              }
+            : { type: "FeatureCollection", features: [] }
+        );
       };
+      paintBoxRef.current = paintBox;
 
-      map.on("mousedown", (ev) => {
-        if (!armedRef.current) return;
-        ev.preventDefault();
-        drawingRef.current = true;
-        startRef.current = ev.lngLat;
-      });
-      map.on("mousemove", (ev) => {
-        if (drawingRef.current && startRef.current) paint(startRef.current, ev.lngLat);
-      });
-      map.on("mouseup", (ev) => {
-        if (!drawingRef.current || !startRef.current) return;
-        drawingRef.current = false;
-        const { box } = boxGeoJSON(startRef.current, ev.lngLat);
-        paint(startRef.current, ev.lngLat);
-        startRef.current = null;
-        setBbox(box);
-        setArmed(false);
-      });
-
-      // One-finger draw on touch devices (dragPan is disabled while armed,
-      // so the finger draws instead of panning; touchend carries no lngLat,
-      // hence lastTouchRef)
-      map.on("touchstart", (ev) => {
-        if (!armedRef.current || ev.points.length !== 1) return;
-        ev.preventDefault();
-        drawingRef.current = true;
-        startRef.current = ev.lngLat;
-        lastTouchRef.current = ev.lngLat;
-      });
-      map.on("touchmove", (ev) => {
-        if (!drawingRef.current || !startRef.current) return;
-        ev.preventDefault();
-        lastTouchRef.current = ev.lngLat;
-        paint(startRef.current, ev.lngLat);
-      });
-      map.on("touchend", () => {
-        if (!drawingRef.current || !startRef.current) return;
-        drawingRef.current = false;
-        const end = lastTouchRef.current;
-        if (end) {
-          const { box } = boxGeoJSON(startRef.current, end);
-          paint(startRef.current, end);
-          setBbox(box);
-        }
-        startRef.current = null;
-        lastTouchRef.current = null;
-        setArmed(false);
+      map.on("move", () => {
+        if (armedRef.current) setBbox(frameBBox(map));
       });
 
       mapRef.current = map;
@@ -368,7 +342,8 @@ export default function RegionRequest() {
           ) : (
             <>
               <p>
-                Draw a rough box around the area on your mind. Tell us about
+                Frame the area on your mind — pan and zoom the chart until it
+                fits the box, then lock it. Tell us about
                 your organization and the situation in your own words — however
                 it looks from where you sit. We&apos;ll get back to you to
                 schedule the call.
@@ -393,7 +368,7 @@ export default function RegionRequest() {
                     type="text"
                     readOnly
                     value={bboxDisplay}
-                    placeholder="— draw on the chart →"
+                    placeholder="— frame on the chart →"
                   />
                 </div>
                 <div className="btnrow" style={{ margin: "-4px 0 14px" }}>
@@ -401,16 +376,26 @@ export default function RegionRequest() {
                     type="button"
                     className={`ghost${armed ? " armed" : ""}`}
                     onClick={() => {
-                      const next = !armed;
-                      setArmed(next);
-                      // On stacked (mobile) layout the map is above the form —
-                      // bring it into view so "armed" doesn't strand the user
-                      if (next && window.innerWidth <= 1060) {
-                        mapContainer.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      const map = mapRef.current;
+                      if (!armed) {
+                        paintBoxRef.current(null); // clear a previously locked box
+                        setArmed(true);
+                        // On stacked (mobile) layout the map is above the form —
+                        // bring it into view so "armed" doesn't strand the user
+                        if (window.innerWidth <= 1060) {
+                          mapContainer.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }
+                      } else {
+                        if (map) {
+                          const b = frameBBox(map);
+                          setBbox(b);
+                          paintBoxRef.current(b);
+                        }
+                        setArmed(false);
                       }
                     }}
                   >
-                    {armed ? "[ ARMED — DRAG A BOX ON THE CHART ]" : bbox ? "[ REDRAW ]" : "[ DRAW BOX ON MAP ]"}
+                    {armed ? "[ LOCK THIS FRAME ]" : bbox ? "[ REFRAME ]" : "[ FRAME REGION ON MAP ]"}
                   </button>
                 </div>
 
@@ -434,6 +419,7 @@ export default function RegionRequest() {
       {/* ---- map ---- */}
       <div className="mapcell">
         <div ref={mapContainer} className="map" />
+        {armed && <div className="framebox" aria-hidden="true" />}
 
         <svg className="xhair" viewBox="0 0 38 38" aria-hidden="true">
           <g stroke="#16130d" strokeWidth="1.5">
