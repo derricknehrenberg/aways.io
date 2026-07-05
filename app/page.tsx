@@ -41,7 +41,7 @@ export default function Home() {
       <div className="wrap">
         <section className="hero">
           <div>
-            <span className="eyebrow">Professional OpenStreetMap services</span>
+            <span className="eyebrow">Professional trail mapping · OpenStreetMap</span>
             <h1>Grade A mapping for the places that depend on it.</h1>
             <p className="herobody">
               AWAYS makes public outdoor data accurate — every trail mapped,

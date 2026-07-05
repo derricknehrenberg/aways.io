@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AWAYS · Field Station — Grade A OpenStreetMap services",
+  title: "AWAYS · Field Station — Grade A trail mapping in OpenStreetMap",
   description:
     "AWAYS makes public outdoor data accurate — every trail mapped, every connector included, every closure reflected, every name correct. The work lives in OpenStreetMap and stays open.",
 };
