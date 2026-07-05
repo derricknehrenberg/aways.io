@@ -82,7 +82,7 @@ Deliberately split between two surfaces, correlated by email:
 - **Vocabulary**: use "Grade A" on aways.io copy (B2B register). "Juicy" is consumer-facing JT vocabulary; references to the JT app are fine but not as the noun for the threshold.
 - **Copy**: no prices, no named team members, no specific sales mechanics in evergreen content. (Mirrors the AWAYS vision-doc conventions.)
 - **Brand mark**: header pairs the icon-only logo with the "AWAYS" wordmark in type. Hero uses a bigger icon treatment.
-- **Commits**: commit + push after every change (standing rule). Doc-only updates can go directly to `main`.
+- **Commits**: commit + push after every change (standing rule), on `dev` by default. `dev` = staging (branch deploy at https://dev--aways-io.netlify.app, enabled July 5, 2026), `main` = production — same convention as the JuicyTrails webapp. Preview on the dev URL, then merge `dev` → `main` to ship. Doc-only updates can go directly to `main`.
 - **DESIGN.md tokens**: when reaching for a color/spacing/component, check DESIGN.md first and add the token to `@theme` in `globals.css` rather than inventing.
 
 ## Live infrastructure (completed July 2, 2026 — handoffs done)
@@ -101,7 +101,7 @@ The July 2026 site is a functional test of the draw-region + scoping-call flow, 
 1. **Form field names** (`email`, `note`, `bbox`, `josm_url`; form name `aways-scoping-request`) are contract-bound in three places: `RegionRequest.tsx`, `public/__forms.html`, and the Apps Script `doPost`. Change them in lockstep or not at all.
 2. **`SUBMISSION_URL`** must keep pointing at the deployed Apps Script; the POST stays `text/plain` (avoids CORS preflight).
 3. **`public/juicytrails-style.js`** stays vendored — never edit it here.
-4. **Pushes to `main` go straight to production.** For multi-commit redesign work, use a branch and merge when ready; the commit-after-every-change rule still applies on the branch.
+4. **Pushes to `main` go straight to production.** Work on `dev` and preview at https://dev--aways-io.netlify.app before merging; the commit-after-every-change rule still applies on `dev`.
 
 ## Known non-blocking warnings
 
