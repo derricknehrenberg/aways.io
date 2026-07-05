@@ -95,6 +95,7 @@ export default function RegionRequest() {
   const armedRef = useRef(false);
   const drawingRef = useRef(false);
   const startRef = useRef<maplibregl.LngLat | null>(null);
+  const lastTouchRef = useRef<maplibregl.LngLat | null>(null);
 
   const [armed, setArmed] = useState(false);
   const [bbox, setBbox] = useState<BBox | null>(null);
@@ -216,6 +217,36 @@ export default function RegionRequest() {
         paint(startRef.current, ev.lngLat);
         startRef.current = null;
         setBbox(box);
+        setArmed(false);
+      });
+
+      // One-finger draw on touch devices (dragPan is disabled while armed,
+      // so the finger draws instead of panning; touchend carries no lngLat,
+      // hence lastTouchRef)
+      map.on("touchstart", (ev) => {
+        if (!armedRef.current || ev.points.length !== 1) return;
+        ev.preventDefault();
+        drawingRef.current = true;
+        startRef.current = ev.lngLat;
+        lastTouchRef.current = ev.lngLat;
+      });
+      map.on("touchmove", (ev) => {
+        if (!drawingRef.current || !startRef.current) return;
+        ev.preventDefault();
+        lastTouchRef.current = ev.lngLat;
+        paint(startRef.current, ev.lngLat);
+      });
+      map.on("touchend", () => {
+        if (!drawingRef.current || !startRef.current) return;
+        drawingRef.current = false;
+        const end = lastTouchRef.current;
+        if (end) {
+          const { box } = boxGeoJSON(startRef.current, end);
+          paint(startRef.current, end);
+          setBbox(box);
+        }
+        startRef.current = null;
+        lastTouchRef.current = null;
         setArmed(false);
       });
 
@@ -369,7 +400,15 @@ export default function RegionRequest() {
                   <button
                     type="button"
                     className={`ghost${armed ? " armed" : ""}`}
-                    onClick={() => setArmed(!armed)}
+                    onClick={() => {
+                      const next = !armed;
+                      setArmed(next);
+                      // On stacked (mobile) layout the map is above the form —
+                      // bring it into view so "armed" doesn't strand the user
+                      if (next && window.innerWidth <= 1060) {
+                        mapContainer.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }
+                    }}
                   >
                     {armed ? "[ ARMED — DRAG A BOX ON THE CHART ]" : bbox ? "[ REDRAW ]" : "[ DRAW BOX ON MAP ]"}
                   </button>

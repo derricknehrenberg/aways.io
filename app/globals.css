@@ -260,6 +260,18 @@ footer .stamp{ opacity:.7; }
   .rail{ border-right:none; border-top: 2px solid var(--ink); order: 2; }
   .mapcell{ min-height: 68vh; }
   .hero{ grid-template-columns: 1fr; }
-  .hero .trirow{ display:none; }
+  .hero .trirow{ width: 128px; margin: 8px auto 0; }
+  .hero .trirow small{ font-size: 13px; }
   .trans{ grid-template-columns: 1fr; gap: 18px; }
+}
+
+/* ---------- phone ---------- */
+@media (max-width: 560px){
+  .instrument{ margin: 0 14px; }
+  .mapcell{ min-height: 58vh; overflow: hidden; }
+  .seal{ width: 104px; height: 104px; top: 10px; right: 10px; }
+  .ledger{ font-size: 11.5px; }
+  .chip{ font-size: 10px; letter-spacing:.04em; }
+  .chip.bl{ max-width: 70vw; overflow: hidden; text-overflow: ellipsis; }
+  .chip.attrib{ white-space: normal; max-width: 86vw; text-align: right; font-size: 10px; }
 }
