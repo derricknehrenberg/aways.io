@@ -100,6 +100,7 @@ export default function RegionRequest() {
   const [bbox, setBbox] = useState<BBox | null>(null);
   const [center, setCenter] = useState({ lat: 38.75, lng: -106.95, z: 10 });
   const [submitted, setSubmitted] = useState(false);
+  const [attribOpen, setAttribOpen] = useState(false);
 
   // Keep refs in sync for the map event closures
   useEffect(() => {
@@ -408,7 +409,18 @@ export default function RegionRequest() {
         <div className="chip bl">
           {`CTR ${center.lat.toFixed(4)} ${center.lat >= 0 ? "N" : "S"} · ${Math.abs(center.lng).toFixed(4)} ${center.lng <= 0 ? "W" : "E"} · Z ${center.z.toFixed(1)}`}
         </div>
-        <div className="chip br">MAP © OPENFREEMAP · © OPENSTREETMAP CONTRIBUTORS</div>
+        <button
+          type="button"
+          className="chip br attrib"
+          onClick={() => setAttribOpen((o) => !o)}
+          aria-expanded={attribOpen}
+          aria-label={attribOpen ? "Hide map attribution" : "Show map attribution"}
+        >
+          {attribOpen && (
+            <span>JUICYTRAILS © · OPENFREEMAP © · MAPLIBRE · DATA FROM OPENSTREETMAP&ensp;</span>
+          )}
+          <i>i</i>
+        </button>
 
         {/* the one gold thing on this page */}
         <svg className="seal" viewBox="0 0 200 200" aria-label="Grade A seal">
