@@ -75,8 +75,12 @@ h1{
   max-width: 66ch;
 }
 .hero .bigtri{ width:100%; height:auto; display:block; }
-.hero .trirow{ text-align:right; }
-.hero .trirow small{ display:block; font-size:11px; letter-spacing:.2em; margin-top:8px; opacity:.65; }
+.hero .trirow{ text-align:center; }
+.hero .trirow small{
+  display:block; font-size:16px; font-weight:700;
+  letter-spacing:.3em; padding-left:.3em; /* re-center: tracking adds space after the last glyph */
+  margin-top:12px;
+}
 
 /* ---------- instrument ---------- */
 .instrument{

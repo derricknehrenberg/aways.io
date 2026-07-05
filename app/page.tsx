@@ -53,7 +53,7 @@ export default function Home() {
           </div>
           <div className="trirow">
             <Tri className="bigtri" />
-            <small>AWAYS · MARK 03</small>
+            <small>AWAYS</small>
           </div>
         </section>
       </div>
